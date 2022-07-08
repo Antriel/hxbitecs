@@ -46,7 +46,7 @@ private class MovementSystem {
 
     public function update(dt:Float) {
         var processed = [];
-        for (eid => node in query.keyValueIterator(world)) {
+        for (eid => node in query.on(world)) {
             processed.push(eid);
             node.position.x += node.velocity.x * dt;
             node.position.y += node.velocity.y * dt;
@@ -62,7 +62,20 @@ private abstract PosVelQuery(bitecs.Query<Dynamic>) from bitecs.Query<Dynamic> {
         return new PosVelQueryIterator(this(world), world.position, world.velocity);
     }
 
-    public extern inline function keyValueIterator(world) return new EntityValueIterator(iterator(world));
+    public inline function keyValueIterator(world) return new EntityValueIterator(iterator(world));
+
+    public inline function on(world:{final position:{x:Array<Float>, y:Array<Float>}; final velocity:{x:Array<Float>, y:Array<Float>};})
+        return new PosVelQueryHelper(world, (this:PosVelQuery));
+
+}
+
+private abstract PosVelQueryHelper({w:{final position:{x:Array<Float>, y:Array<Float>}; final velocity:{x:Array<Float>, y:Array<Float>};}, q:PosVelQuery}) {
+
+    public inline function new(w, q) this = { w: w, q: q };
+
+    public inline function iterator() return this.q.iterator(this.w);
+
+    public inline function keyValueIterator() return this.q.keyValueIterator(this.w);
 
 }
 
@@ -70,7 +83,7 @@ private class EntityValueIterator<V, T:Iterator<V> & {eid:Entity}> {
 
     final iter:T;
 
-    public extern inline function new(iter:T) {
+    public inline function new(iter:T) {
         this.iter = iter;
     }
 

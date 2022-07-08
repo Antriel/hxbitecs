@@ -5,6 +5,7 @@
 -debug
 --dce full
 -D analyzer-optimize
+-D js-es=6
 
 -js bin/tests.js
 
