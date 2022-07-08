@@ -1,0 +1,11 @@
+{
+  "name": "hxbitecs",
+  "version": "0.0.0",
+  "description": "",
+  "author": "Peter Achberger",
+  "license": "MIT",
+  "dependencies": {
+    "bitecs": "^0.3.38",
+    "lix": "^15.12.0"
+  }
+}
