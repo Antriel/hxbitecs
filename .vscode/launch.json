@@ -18,7 +18,8 @@
                 "<node_internals>/**"
             ],
             "outputCapture": "std",
-            "type": "node"
+            "type": "node",
+            "sourceMaps": false
         }
     ]
 }

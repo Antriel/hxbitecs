@@ -6,7 +6,6 @@ class TestDirectUsage extends Test {
         var world = new World();
         var movement = new MovementSystem(world);
         var e = Bitecs.addEntity(world);
-        // TODO reset component values manually. Or make it part of something like `Position.add(world, e);`.
         Bitecs.addComponent(world, world.position, e);
         Bitecs.addComponent(world, world.velocity, e);
         world.position.x[e] = 0;

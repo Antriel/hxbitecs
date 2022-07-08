@@ -3,6 +3,8 @@
 -lib utest
 -main TestsMain
 -debug
+--dce full
+-D analyzer-optimize
 
 -js bin/tests.js
 
