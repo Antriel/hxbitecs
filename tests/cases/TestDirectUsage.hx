@@ -1,5 +1,7 @@
 package cases;
 
+import bitecs.Query.QueryType;
+
 class TestDirectUsage extends Test {
 
     public function testSimple() {
@@ -33,7 +35,7 @@ private class World {
 private class MovementSystem {
 
     final world:World;
-    final query:Query<Dynamic>;
+    final query:QueryType<Dynamic>;
 
     public function new(w:World) {
         world = w;

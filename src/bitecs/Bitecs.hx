@@ -1,5 +1,7 @@
 package bitecs;
 
+import bitecs.Query.QueryType;
+
 @:jsRequire("bitecs") @valueModuleOnly extern class Bitecs {
 
     static function setDefaultSize(size:Int):Void;
@@ -19,15 +21,14 @@ package bitecs;
     static function removeComponent<W>(world:W, component:Dynamic, eid:Entity, ?reset:Bool):Void;
     static function hasComponent<W>(world:W, component:Dynamic, eid:Entity):Bool;
     static function getEntityComponents<W>(world:W, eid:Entity):Array<Dynamic>;
-    static function defineQuery<W>(components:Array<Dynamic>):Query<W>;
+    static function defineQuery<W>(components:Array<Dynamic>):QueryType<W>;
     static function Changed<W>(c:Dynamic):Dynamic;
     static function Not<W>(c:Dynamic):Dynamic;
-    static function enterQuery<W>(query:Query<W>):Query<W>;
-    static function exitQuery<W>(query:Query<W>):Query<W>;
-    static function resetChangedQuery<W>(world:W, query:Query<W>):Query<W>;
-    static function removeQuery<W>(world:W, query:Query<W>):Query<W>;
+    static function enterQuery<W>(query:QueryType<W>):QueryType<W>;
+    static function exitQuery<W>(query:QueryType<W>):QueryType<W>;
+    static function resetChangedQuery<W>(world:W, query:QueryType<W>):QueryType<W>;
+    static function removeQuery<W>(world:W, query:QueryType<W>):QueryType<W>;
     static function commitRemovals<W>(world:W):Void;
-    static function defineSystem<R, W>(update:(world:W, args:haxe.extern.Rest<Any>) -> Void):System<R, W>;
     static function defineSerializer<W>(target:Dynamic, ?maxBytes:Int):Dynamic->js.lib.ArrayBuffer;
     static function defineDeserializer<W>(target:Dynamic):(world:W, packet:js.lib.ArrayBuffer, ?mode:DESERIALIZE_MODE) -> Array<Entity>;
     static function pipe(fns:haxe.extern.Rest<(args:haxe.extern.Rest<Dynamic>) -> Dynamic>):(input:haxe.extern.Rest<Dynamic>) -> Dynamic;

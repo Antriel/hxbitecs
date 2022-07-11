@@ -56,7 +56,7 @@ private class MovementSystem {
 
 }
 
-private abstract PosVelQuery(bitecs.Query<Dynamic>) from bitecs.Query<Dynamic> {
+private abstract PosVelQuery(bitecs.Query.QueryType<Dynamic>) from bitecs.Query.QueryType<Dynamic> {
 
     public inline function iterator(world:{final position:{x:Array<Float>, y:Array<Float>}; final velocity:{x:Array<Float>, y:Array<Float>};}) {
         return new PosVelQueryIterator(this(world), world.position, world.velocity);

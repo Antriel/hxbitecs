@@ -6,5 +6,7 @@
     "license": "MIT",
     "releasenote": "...",
     "contributors": ["Antriel"],
-    "dependencies": { }
+    "dependencies": {
+        "tink_macro": "1.0.0"
+    }
 }

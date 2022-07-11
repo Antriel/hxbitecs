@@ -1,4 +1,4 @@
--cp src
+lib.hxml
 -cp tests
 -lib utest
 -main TestsMain
