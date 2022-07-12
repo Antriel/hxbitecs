@@ -16,7 +16,13 @@ function build() {
             for (param in params) {
                 final id = param.getID();
                 if (!World.components.exists(id))
-                    World.components.set(id, TypeTools.toComplexType(param));
+                    World.components.set(id, {
+                        name: switch TypeTools.toComplexType(param) {
+                            case TPath(p): p.name;
+                            case _: throw "unexpected";
+                        },
+                        type: param
+                    });
             }
             BuildCache.getTypeN('Query', params, (ctx:BuildContextN) -> {
                 var name = ctx.name;

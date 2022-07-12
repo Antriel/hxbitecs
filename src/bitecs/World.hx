@@ -1,15 +1,23 @@
 package bitecs;
 
 #if !macro
-@:autoBuild(bitecs.World.build()) class World { }
+@:autoBuild(bitecs.World.build()) class World {
 
+    public function new(?size:Int) {
+        Bitecs.createWorld(this, size);
+    }
+
+}
 #else
 import haxe.macro.Context;
 import haxe.macro.Expr;
 
 using tink.MacroApi;
 
-@:persistent var components:Map<String, ComplexType> = [];
+@:persistent var components:Map<String, {
+    name:String,
+    type:haxe.macro.Type
+}> = [];
 
 function build() {
     var fields = Context.getBuildFields();
@@ -22,18 +30,14 @@ function build() {
         }
     }
     // Create stores for the components in this class.
-    for (c in components) switch c {
-        case TPath(p):
-            fields.push({
-                name: p.name.substr(0, 1).toLowerCase() + p.name.substr(1),
-                // TODO proper types.
-                // TODO component definition.
-                kind: FVar(macro:Dynamic, macro Bitecs.defineComponent(null)),
-                pos: Context.currentPos(),
-                access: [APublic, AFinal]
-            });
-        case _:
-            throw 'unexpected';
+    for (c in components) {
+        fields.push({
+            name: c.name.substr(0, 1).toLowerCase() + c.name.substr(1),
+            // TODO proper types.
+            kind: FVar(macro:Dynamic, macro Bitecs.defineComponent(${Component.getDefinition(c.type)})),
+            pos: Context.currentPos(),
+            access: [APublic, AFinal]
+        });
     }
     return fields;
 }

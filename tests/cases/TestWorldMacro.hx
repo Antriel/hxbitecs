@@ -17,6 +17,7 @@ private class MyWorld extends World {
     var s:MySystem1; // Test that we can extract types from fields.
 
     public function new() {
+        super(100);
         @:keep var foo = [(null:MySystem2)]; // Test that we can extract types from constructor.
     }
 
@@ -24,7 +25,7 @@ private class MyWorld extends World {
 
 private class MySystem1 {
 
-    @:keep var c:Query<MyComponent1>; // Just making sure it's typed. In practice we use `Query`.
+    @:keep var c:Query<MyComponent1>;
 
 }
 
