@@ -34,7 +34,7 @@ function build() {
         fields.push({
             name: c.name.substr(0, 1).toLowerCase() + c.name.substr(1),
             // TODO proper types.
-            kind: FVar(macro:Dynamic, macro Bitecs.defineComponent(${Component.getDefinition(c.type)})),
+            kind: FVar(macro:Dynamic, Component.getDefinition(c.type)),
             pos: Context.currentPos(),
             access: [APublic, AFinal]
         });

@@ -18,6 +18,8 @@ class TestComponentMacro extends Test {
         Assert.equals(0, w.simplePrecisionComponent.int[0]);
         w.simplePrecisionComponent.int[0] = 129;
         Assert.equals(129, w.simplePrecisionComponent.int[0]);
+
+        Assert.isOfType(w.stringComponent.string, js.lib.Map);
     }
 
 }
@@ -26,6 +28,7 @@ private class MyWorld extends World {
 
     public var simpleQ:Query<SimpleComponent>;
     public var precisionQ:Query<SimplePrecisionComponent>;
+    public var stringQ:Query<StringComponent>;
 
 }
 
@@ -44,6 +47,12 @@ private class SimplePrecisionComponent {
 
 }
 
+private class StringComponent {
+
+    public var int:Int;
+    public var string:String;
+
+}
+
 // TODO initialized values.
-// TODO non-value types mapping.
 // TODO component wrappers.

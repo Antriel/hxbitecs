@@ -3,4 +3,5 @@ Haxe externs for [BitECS](https://github.com/NateTheGreatt/bitECS/) with macros 
 Work in progress.
 - [ ] Reset/initialize components when adding them to an entity.
 - [ ] Consider getting component stores from the query directly, instead of through the world?
-- [ ] Queries should be defined in Systems, but equal queries shouldn't be defined twice. That means we will need to generate some common storage type, probably in the World.
+- [x] Queries should be defined in Systems, ~~but equal queries shouldn't be defined twice~~. That means we will need to generate some common storage type, probably in the World.
+- [ ] bitECS array types.
