@@ -33,8 +33,7 @@ function build() {
     for (c in components) {
         fields.push({
             name: c.name.substr(0, 1).toLowerCase() + c.name.substr(1),
-            // TODO proper types.
-            kind: FVar(macro:Dynamic, Component.getDefinition(c.type)),
+            kind: Component.getDefinition(c.type),
             pos: Context.currentPos(),
             access: [APublic, AFinal]
         });

@@ -11,38 +11,62 @@ function getDefinition(t:Type) {
     final typePos = t.getPosition().sure();
     var objFields:Array<ObjectField> = [];
     var mappedFields = [];
+    var typeFields = [];
     for (field in t.getFields().sure()) {
+        var typeField = {
+            name: field.name,
+            pos: field.pos,
+            kind: null,
+            doc: field.doc
+        };
+        typeFields.push(typeField);
+        final ct = TypeTools.toComplexType(field.type);
         switch field.type.reduce() {
             case TAbstract(t, params):
-                var meta = field.meta.extract(':bitecs.type')[0];
-                var precision = meta == null ? null : meta.params[0].toString();
-                // TODO check if precision is valid for the type?
                 if (params.length > 0) throw "unexpected";
-                switch t.get().name {
-                    case 'Float':
-                        if (precision == null) precision = 'f64';
-                    case 'Int': if (precision == null) precision = 'i32';
-                    case 'Bool': if (precision == null) precision = 'ui8';
+                var meta = field.meta.extract(':bitecs.type')[0];
+                var typeName = meta == null ? null : meta.params[0].toString();
+                // TODO check if provided type name is valid for the actual field type?
+                if (typeName == null) typeName = switch t.get().name {
+                    case 'Float': 'f64';
+                    case 'Int': 'i32';
+                    case 'Bool': 'ui8';
                     case _: throw "unexpected";
                 }
-                var bitEcsType = macro @:pos(field.pos) bitecs.Bitecs.Types.$precision;
+                var bitEcsType = Lambda.find(bitEcsTypeToCT, t -> t.names.contains(typeName));
+                if (bitEcsType == null) haxe.macro.Context.error('Failed to determine bitECS type.', field.pos);
                 objFields.push({
                     field: field.name,
-                    expr: bitEcsType
+                    expr: bitEcsType.expr.expr.at(field.pos)
                 });
+                typeField.kind = FieldType.FVar(bitEcsType.ct);
             case _:
-                // var ct = TypeTools.toComplexType(field.type); // TODO typing it all.
                 mappedFields.push({ name: field.name });
+                typeField.kind = FieldType.FVar(macro:js.lib.Map<bitecs.Entity, $ct>);
         }
     }
-    final init = macro @:pos(typePos) Bitecs.defineComponent(${EObjectDecl(objFields).at(typePos)});
+    var expr = macro @:pos(typePos) Bitecs.defineComponent(${EObjectDecl(objFields).at(typePos)});
     if (mappedFields.length > 0) {
-        var res = macro final c = $init;
+        expr = macro final c = $expr;
         for (f in mappedFields) {
             var name = f.name;
-            res = res.concat((macro c.$name).assign(macro new js.lib.Map()));
+            expr = expr.concat((macro c.$name).assign(macro new js.lib.Map()));
         }
-        res = res.concat(macro c);
-        return res;
-    } else return init;
+        expr = expr.concat(macro c);
+    };
+
+    return FieldType.FVar(TAnonymous(typeFields), expr);
 }
+
+private var bitEcsTypeToCT = [
+    { names: ['i8', 'int8'], ct: macro:js.lib.Int8Array, expr: macro bitecs.Bitecs.Types.i8 },
+    { names: ['ui8', 'uint8'], ct: macro:js.lib.Uint8Array, expr: macro bitecs.Bitecs.Types.ui8 },
+    { names: ['ui8c'], ct: macro:js.lib.Uint8ClampedArray, expr: macro bitecs.Bitecs.Types.ui8c },
+    { names: ['i16', 'int16'], ct: macro:js.lib.Int16Array, expr: macro bitecs.Bitecs.Types.i16 },
+    { names: ['ui16', 'uint16'], ct: macro:js.lib.Uint16Array, expr: macro bitecs.Bitecs.Types.ui16 },
+    { names: ['i32', 'int32'], ct: macro:js.lib.Int32Array, expr: macro bitecs.Bitecs.Types.i32 },
+    { names: ['ui32', 'uint32'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.ui32 },
+    { names: ['f32', 'float32'], ct: macro:js.lib.Float32Array, expr: macro bitecs.Bitecs.Types.f32 },
+    { names: ['f64', 'float64'], ct: macro:js.lib.Float64Array, expr: macro bitecs.Bitecs.Types.f64 },
+    { names: ['eid', 'entity'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid },
+];
