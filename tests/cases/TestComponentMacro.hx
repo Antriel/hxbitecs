@@ -7,17 +7,25 @@ class TestComponentMacro extends Test {
         Assert.isTrue(Reflect.hasField(w.simpleComponent, 'float'));
         Assert.isTrue(Reflect.hasField(w.simpleComponent, 'int'));
         Assert.isTrue(Reflect.hasField(w.simpleComponent, 'bool'));
+
+        w.simplePrecisionComponent.float[0] = 16777217; // Over max safe int for f32.
+        Assert.notEquals(16777217, w.simplePrecisionComponent.float[0]);
+        w.simplePrecisionComponent.float[0] = 16777215;
+        Assert.equals(16777215, w.simplePrecisionComponent.float[0]);
+        w.simplePrecisionComponent.int[0] = -1;
+        Assert.equals(255, w.simplePrecisionComponent.int[0]);
+        w.simplePrecisionComponent.int[0] = 256;
+        Assert.equals(0, w.simplePrecisionComponent.int[0]);
+        w.simplePrecisionComponent.int[0] = 129;
+        Assert.equals(129, w.simplePrecisionComponent.int[0]);
     }
 
 }
 
 private class MyWorld extends World {
 
-    public var q:Query<SimpleComponent>;
-
-    public function new() {
-        super(100);
-    }
+    public var simpleQ:Query<SimpleComponent>;
+    public var precisionQ:Query<SimplePrecisionComponent>;
 
 }
 
@@ -29,7 +37,13 @@ private class SimpleComponent {
 
 }
 
+private class SimplePrecisionComponent {
+
+    @:bitecs.type(f32) public var float:Float;
+    @:bitecs.type(ui8) public var int:Int;
+
+}
+
 // TODO initialized values.
-// TODO specifying precision.
 // TODO non-value types mapping.
 // TODO component wrappers.
