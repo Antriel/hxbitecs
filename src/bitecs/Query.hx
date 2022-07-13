@@ -18,7 +18,7 @@ function build() {
                 if (!World.components.exists(id))
                     World.components.set(id, {
                         name: switch TypeTools.toComplexType(param) {
-                            case TPath(p): p.name;
+                            case TPath(p): p.name.substr(0, 1).toLowerCase() + p.name.substr(1);
                             case _: throw "unexpected";
                         },
                         type: param

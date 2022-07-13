@@ -1,22 +1,16 @@
 package bitecs;
 
-#if !macro
-@:autoBuild(bitecs.World.build()) class World {
-
-    public function new(?size:Int) {
-        Bitecs.createWorld(this, size);
-    }
-
-}
-#else
+#if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import bitecs.Component.CompDef;
 
 using tink.MacroApi;
 
 @:persistent var components:Map<String, {
     name:String,
-    type:haxe.macro.Type
+    type:haxe.macro.Type,
+    ?def:CompDef
 }> = [];
 
 function build() {
@@ -29,14 +23,17 @@ function build() {
             case FProp(get, set, t, e): typeType(t.toType().sure());
         }
     }
-    // Create stores for the components in this class.
     for (c in components) {
+        // Create stores for the components in this class.
+        var def = Component.getDefinition(c.type);
         fields.push({
-            name: c.name.substr(0, 1).toLowerCase() + c.name.substr(1),
-            kind: Component.getDefinition(c.type),
+            name: c.name,
+            kind: def.instanceVar,
             pos: Context.currentPos(),
             access: [APublic, AFinal]
         });
+        c.def = def;
+        Context.defineType(def.wrapper);
     }
     return fields;
 }
@@ -63,4 +60,36 @@ private function typeType(t:haxe.macro.Type) {
         f.type.reduce();
     }
 }
+
+private function addComponentImpl(world:Expr, comp:Expr, eid:Expr) {
+    var compData = null;
+    try {
+        final type = Context.getType(comp.toString());
+        compData = components.get(type.getID());
+        if (compData == null) Context.error('Component not registered, is it used in any query?', comp.pos);
+    } catch (e) {
+        Context.error('Could not find type: $e', comp.pos);
+    }
+    final cname = compData.name;
+    final wrapperPath = compData.def.wrapperPath;
+    var res = macro bitecs.Bitecs.addComponent($world, $world.$cname, $eid);
+    res = res.concat(macro var wrapper = new $wrapperPath($eid, $world.$cname));
+    res = res.concat(macro wrapper.init());
+    res = res.concat(macro wrapper);
+    return res;
+}
 #end
+
+@:autoBuild(bitecs.World.build()) class World {
+
+    #if !macro
+    public function new(?size:Int) {
+        Bitecs.createWorld(this, size);
+    }
+    #end
+
+    public macro function addComponent(world, comp, eid) return addComponentImpl(world, comp, eid);
+
+    // TODO add `w.get(Component, eid, ?check)`.
+
+}
