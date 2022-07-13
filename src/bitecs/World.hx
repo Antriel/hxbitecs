@@ -62,21 +62,35 @@ private function typeType(t:haxe.macro.Type) {
 }
 
 private function addComponentImpl(world:Expr, comp:Expr, eid:Expr) {
-    var compData = null;
-    try {
-        final type = Context.getType(comp.toString());
-        compData = components.get(type.getID());
-        if (compData == null) Context.error('Component not registered, is it used in any query?', comp.pos);
-    } catch (e) {
-        Context.error('Could not find type: $e', comp.pos);
+    var res = [];
+    var names = [];
+    function add(cExpr:Expr) {
+        var compData = null;
+        try {
+            final type = Context.getType(cExpr.toString());
+            compData = components.get(type.getID());
+            if (compData == null) Context.error('Component not registered, is it used in any query?', cExpr.pos);
+        } catch (e) {
+            Context.error('Could not find type: $e', cExpr.pos);
+        }
+        final cname = compData.name;
+        final wrapperPath = compData.def.wrapperPath;
+        names.push(cname);
+        res.push(macro bitecs.Bitecs.addComponent($world, $world.$cname, $eid));
+        res.push(macro var $cname = new $wrapperPath($eid, $world.$cname));
+        res.push((macro $i{cname}).field('init').call());
     }
-    final cname = compData.name;
-    final wrapperPath = compData.def.wrapperPath;
-    var res = macro bitecs.Bitecs.addComponent($world, $world.$cname, $eid);
-    res = res.concat(macro var wrapper = new $wrapperPath($eid, $world.$cname));
-    res = res.concat(macro wrapper.init());
-    res = res.concat(macro wrapper);
-    return res;
+    switch comp.expr {
+        case EArrayDecl(values):
+            for (v in values) add(v);
+            // Result value is anon object of all wrappers.
+            res.push(EObjectDecl(names.map(n -> ({ field: n, expr: macro $i{n} }:ObjectField))).at());
+        case _:
+            add(comp);
+            // Result value is just the single wrapper;
+            res.push(macro $i{names[0]});
+    }
+    return res.toBlock();
 }
 #end
 
@@ -88,6 +102,9 @@ private function addComponentImpl(world:Expr, comp:Expr, eid:Expr) {
     }
     #end
 
+    /**
+        Adds one or more components to the supplied entity.
+    **/
     public macro function addComponent(world, comp, eid) return addComponentImpl(world, comp, eid);
 
     // TODO add `w.get(Component, eid, ?check)`.
