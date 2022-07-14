@@ -66,6 +66,15 @@ private function registerCompType(fields:Array<Field>, comp:Type, ?name:String):
         }),
         access: [APublic, AInline]
     });
+    fields.push({
+        name: 'get' + c.name.substr(0, 1).toUpperCase() + c.name.substr(1),
+        pos: Context.currentPos(),
+        kind: FFun({
+            args: [{ name: 'eid', type: entityType }],
+            expr: getComponentImpl(comp)
+        }),
+        access: [APublic, AInline]
+    });
 }
 
 private function addComponentImpl(comp:Type) {
@@ -79,12 +88,27 @@ private function addComponentImpl(comp:Type) {
     }
     final cname = compData.name;
     final wrapperPath = compData.def.wrapperPath;
-    res.push(macro bitecs.Bitecs.addComponent(this, this.$cname, eid));
-    res.push(macro var $cname = new $wrapperPath(eid, this.$cname));
-    res.push((macro $i{cname}).field('init').call());
-    // Result value is just the wrapper.
-    res.push(macro return $i{cname});
-    return res.toBlock();
+    return macro {
+        bitecs.Bitecs.addComponent(this, this.$cname, eid);
+        var $cname = new $wrapperPath(eid, this.$cname);
+        $i{cname}.init();
+        // Result value is just the wrapper.
+        return $i{cname};
+    }
+}
+
+private function getComponentImpl(comp:Type) {
+    var res = [];
+    var compData = null;
+    try {
+        compData = components.get(comp);
+        if (compData == null) Context.error('Component not registered, is it used in any query?', Context.currentPos());
+    } catch (e) {
+        Context.error('Could not find type: $e', Context.currentPos());
+    }
+    final cname = compData.name;
+    final wrapperPath = compData.def.wrapperPath;
+    return macro return new $wrapperPath(eid, this.$cname);
 }
 
 private var entityType = macro:bitecs.Entity;

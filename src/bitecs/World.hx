@@ -10,6 +10,4 @@ package bitecs;
         return macro "foo";
     }
 
-    // TODO add `w.get(Component, eid, ?check)`.
-
 }
