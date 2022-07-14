@@ -107,14 +107,14 @@ function getDefinition(t:Type):CompDef {
             access: [AInline]
         });
     }
-    var expr = macro @:pos(typePos) Bitecs.defineComponent(${EObjectDecl(objFields).at(typePos)});
+    var initExpr = macro @:pos(typePos) Bitecs.defineComponent(${EObjectDecl(objFields).at(typePos)});
     if (mappedFields.length > 0) {
-        expr = macro final c = $expr;
+        initExpr = macro final c = $initExpr;
         for (f in mappedFields) {
             var name = f.name;
-            expr = expr.concat((macro c.$name).assign(macro new js.lib.Map()));
+            initExpr = initExpr.concat((macro c.$name).assign(macro new js.lib.Map()));
         }
-        expr = expr.concat(macro c);
+        initExpr = initExpr.concat(macro c);
     };
 
     final storeType = ComplexType.TAnonymous(typeFields);
@@ -156,7 +156,8 @@ function getDefinition(t:Type):CompDef {
     };
 
     return {
-        instanceVar: FieldType.FVar(storeType, expr),
+        storeType: storeType,
+        initExpr: initExpr,
         wrapper: wrapperTd,
         wrapperPath: wrapperPath
     }
@@ -164,7 +165,8 @@ function getDefinition(t:Type):CompDef {
 
 typedef CompDef = {
 
-    instanceVar:FieldType,
+    storeType:ComplexType,
+    initExpr:Expr,
     wrapper:TypeDefinition,
     wrapperPath:TypePath
 
