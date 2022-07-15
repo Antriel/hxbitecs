@@ -4,27 +4,14 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.TypeTools;
 import tink.macro.BuildCache;
-import bitecs.Utils;
 
 using tink.MacroApi;
 
 function build() {
     return switch Context.getLocalType() {
         case TInst(t, params):
-            for (param in params) {
-                if (!World.components.exists(param)) {
-                    final def = Component.getDefinition(param);
-                    Context.defineType(def.wrapper);
-                    World.components.set(param, {
-                        name: switch TypeTools.toComplexType(param) {
-                            case TPath(p): firstToLower(p.name);
-                            case _: throw "unexpected";
-                        },
-                        def: def
-                    });
-                }
-            }
-            var iterType = BuildCache.getTypeN('bitecs.gen.Query', params, ctx -> new QueryBuilder(ctx).build());
+            var compTypes = Lambda.flatten([for (param in params) World.parseComponent(param)]).map(c -> c.type);
+            var iterType = BuildCache.getTypeN('bitecs.gen.Query', compTypes, ctx -> new QueryBuilder(ctx).build());
             // BuildCache doesn't like building abstract, so we build the actual iterator, but we want to return the abstract.
             switch TypeTools.toComplexType(iterType) {
                 case TPath(p):

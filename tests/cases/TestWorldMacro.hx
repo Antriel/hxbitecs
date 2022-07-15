@@ -5,9 +5,8 @@ import bitecs.*;
 class TestWorldMacro extends Test {
 
     public function testSimple() {
-        var world = new World<MyComponent1, MyComponent2>();
+        var world = new World<MyComponent1>();
         Assert.notNull(world.myComponent1);
-        Assert.notNull(world.myComponent2);
     }
 
     public function testRename() {
