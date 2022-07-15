@@ -36,7 +36,6 @@ function getDefinition(t:Type):CompDef {
             kind: null,
             doc: field.doc
         };
-        typeFields.push(typeField);
         final ct = TypeTools.toComplexType(field.type);
         var modValueGet:Expr->Expr = e -> e; // Identity by default.
         var modValueSet:Expr->Expr = e -> e;
@@ -63,11 +62,15 @@ function getDefinition(t:Type):CompDef {
                 });
                 typeField.kind = FieldType.FVar(bitEcsType.ct);
                 false;
+            case TFun(args, ret):
+                // TODO handle functions.
+                continue;
             case _:
                 mappedFields.push({ name: fname });
                 typeField.kind = FieldType.FVar(macro:js.lib.Map<bitecs.Entity, $ct>);
                 true;
         }
+        typeFields.push(typeField);
         var texpr = field.expr();
         if (texpr != null) {
             final initVal = haxe.macro.Context.getTypedExpr(texpr);
