@@ -50,7 +50,7 @@ private class MySystem {
 
     public function new(w:MyWorld) {
         this.w = w;
-        a.init(w); // Same as `a = new Query<CompA`, just less typing.
+        a.init(w); // Same as `a = new Query<CompA>(w)`, just less typing.
         ab.init(w);
         bc.init(w);
     }
