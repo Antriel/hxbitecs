@@ -6,6 +6,7 @@ import haxe.macro.Type;
 import haxe.macro.TypeTools;
 import tink.macro.BuildCache;
 import bitecs.Component.CompDef;
+import bitecs.Utils;
 
 using tink.MacroApi;
 
@@ -42,7 +43,7 @@ private function registerCompType(fields:Array<Field>, comp:Type, ?name:String):
         final def = Component.getDefinition(comp);
         Context.defineType(def.wrapper);
         if (name == null) name = switch TypeTools.toComplexType(comp) {
-            case TPath(p): p.name.substr(0, 1).toLowerCase() + p.name.substr(1);
+            case TPath(p): firstToLower(if (p.sub != null) p.sub else p.name);
             case _: throw "unexpected";
         };
         components.set(comp, {
@@ -58,7 +59,7 @@ private function registerCompType(fields:Array<Field>, comp:Type, ?name:String):
         access: [APublic, AFinal]
     });
     fields.push({
-        name: 'add' + c.name.substr(0, 1).toUpperCase() + c.name.substr(1),
+        name: 'add' + firstToUpper(c.name),
         pos: Context.currentPos(),
         kind: FFun({
             args: [{ name: 'eid', type: entityType }],
@@ -67,7 +68,7 @@ private function registerCompType(fields:Array<Field>, comp:Type, ?name:String):
         access: [APublic, AInline]
     });
     fields.push({
-        name: 'get' + c.name.substr(0, 1).toUpperCase() + c.name.substr(1),
+        name: 'get' + firstToUpper(c.name),
         pos: Context.currentPos(),
         kind: FFun({
             args: [{ name: 'eid', type: entityType }],

@@ -4,6 +4,7 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.TypeTools;
 import tink.macro.BuildCache;
+import bitecs.Utils;
 
 using tink.MacroApi;
 
@@ -16,7 +17,7 @@ function build() {
                     Context.defineType(def.wrapper);
                     World.components.set(param, {
                         name: switch TypeTools.toComplexType(param) {
-                            case TPath(p): p.name.substr(0, 1).toLowerCase() + p.name.substr(1);
+                            case TPath(p): firstToLower(p.name);
                             case _: throw "unexpected";
                         },
                         def: def
