@@ -45,14 +45,20 @@ function getDefinition(t:Type):CompDef {
                 var meta = field.meta.extract(':bitecs.type')[0];
                 var typeName = meta == null ? null : meta.params[0].toString();
                 // TODO check if provided type name is valid for the actual field type?
-                if (typeName == null) typeName = switch t.get().name {
-                    case 'Float': 'f64';
-                    case 'Int': 'i32';
-                    case 'Bool':
-                        modValueGet = e -> macro $e > 0;
-                        modValueSet = e -> macro if ($e) 1 else 0;
-                        'ui8';
-                    case _: throw "unexpected";
+                // Look further down the abstract type, to handle custom abstracts.
+                if (typeName == null) typeName = switch t.get().type.reduce() {
+                    case TAbstract(_.get().name => name, params): switch name {
+                            case 'Float': 'f64';
+                            case 'Int': 'i32';
+                            case 'Bool':
+                                modValueGet = e -> macro $e > 0;
+                                modValueSet = e -> macro if ($e) 1 else 0;
+                                'ui8';
+                            case _:
+                                throw "unexpected";
+                        }
+                    case _:
+                        throw "unexpected";
                 }
                 var bitEcsType = Lambda.find(bitEcsTypeToCT, t -> t.names.contains(typeName));
                 if (bitEcsType == null) haxe.macro.Context.error('Failed to determine bitECS type.', field.pos);
@@ -157,6 +163,8 @@ function getDefinition(t:Type):CompDef {
             }
         ])
     };
+
+    // trace(new haxe.macro.Printer().printTypeDefinition(wrapperTd));
 
     return {
         storeType: storeType,
