@@ -5,7 +5,7 @@ import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.TypeTools;
 import tink.macro.BuildCache;
-import bitecs.Component.CompDef;
+import bitecs.Component.ComponentDefinition;
 import bitecs.Utils;
 
 using tink.MacroApi;
@@ -13,7 +13,7 @@ using tink.MacroApi;
 @:persistent var components:TypeMap<{
     name:String,
     type:Type,
-    def:CompDef
+    def:ComponentDefinition
 }> = new TypeMap(t -> switch t { // Don't follow typedefs, so we can alias components.
     case TLazy(f): f();
     case _: t;

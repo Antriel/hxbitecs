@@ -1,14 +1,16 @@
 package bitecs;
 
+import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.TypeTools;
 
+using Lambda;
 using tink.MacroApi;
 
 @:persistent private var usedNames:Map<String, Int> = [];
 
-function getDefinition(t:Type):CompDef {
+function getDefinition(t:Type):ComponentDefinition {
     // TODO support `eid` type.
     final typePos = t.getPosition().sure();
     final compName = {
@@ -23,163 +25,198 @@ function getDefinition(t:Type):CompDef {
         }
     };
 
-    var objFields:Array<ObjectField> = [];
-    var mappedFields = [];
-    var typeFields = [];
-    var wrapperFields:Array<Field> = [];
-    var initFieldExprs = [];
-    for (field in t.getFields().sure()) {
-        final fname = field.name;
-        var typeField = {
-            name: fname,
-            pos: field.pos,
-            kind: null,
-            doc: field.doc
-        };
-        final ct = TypeTools.toComplexType(field.type);
-        var modValueGet:Expr->Expr = e -> e; // Identity by default.
-        var modValueSet:Expr->Expr = e -> e;
-        final isMap = switch field.type.reduce() {
+    return new ComponentDefinition(compName, typePos, t.getFields().sure());
+}
+
+class ComponentDefinition {
+
+    public var storeType:ComplexType;
+    public var initExpr:Expr;
+    public var wrapper:TypeDefinition;
+    public var wrapperPath:TypePath;
+
+    final name:String;
+    final typePos:Position;
+    final compFields:Array<{
+
+        /** The field that needs to exist on the actual component storage. */
+        var storeField:Field;
+
+        /** The defition field used to create the bitECS store. */
+        var storeDefField:ObjectField;
+
+        var type:CompFieldType;
+        var ct:ComplexType;
+        var initExpr:Expr;
+        var mod:{valGet:Expr->Expr, valSet:Expr->Expr};
+    }> = [];
+
+    public function new(name:String, typePos:Position, fields:Array<ClassField>) {
+        this.name = name;
+        this.typePos = typePos;
+        for (f in fields) processField(f);
+        buildWrapper();
+    }
+
+    function processField(field:ClassField) {
+        var mod = { valGet: null, valSet: null }; // Conversion of value to/from the stored type.
+        switch field.type.reduce() {
             case TAbstract(t, params):
                 if (params.length > 0) throw "unexpected";
                 var meta = field.meta.extract(':bitecs.type')[0];
-                var typeName = meta == null ? null : meta.params[0].toString();
                 // TODO check if provided type name is valid for the actual field type?
+                var typeName = meta == null ? null : meta.params[0].toString();
                 // Look further down the abstract type, to handle custom abstracts.
                 if (typeName == null) typeName = switch t.get().type.reduce() {
                     case TAbstract(_.get().name => name, params): switch name {
                             case 'Float': 'f64';
                             case 'Int': 'i32';
                             case 'Bool':
-                                modValueGet = e -> macro $e > 0;
-                                modValueSet = e -> macro if ($e) 1 else 0;
+                                mod.valGet = e -> macro $e > 0;
+                                mod.valSet = e -> macro if ($e) 1 else 0;
                                 'ui8';
                             case _:
-                                throw "unexpected";
+                                Context.error('Could not process component field type.', field.pos);
                         }
                     case _:
-                        throw "unexpected";
+                        Context.error('Could not process component field type.', field.pos);
                 }
-                var bitEcsType = Lambda.find(bitEcsTypeToCT, t -> t.names.contains(typeName));
-                if (bitEcsType == null) haxe.macro.Context.error('Failed to determine bitECS type.', field.pos);
-                objFields.push({
-                    field: fname,
-                    expr: bitEcsType.expr.expr.at(field.pos)
-                });
-                typeField.kind = FieldType.FVar(bitEcsType.ct);
-                false;
+                addCompField(BitECS(typeName), field, mod);
             case TFun(args, ret):
                 // TODO handle functions.
-                continue;
+                return;
             case _:
-                mappedFields.push({ name: fname });
-                typeField.kind = FieldType.FVar(macro:js.lib.Map<bitecs.Entity, $ct>);
-                true;
+                addCompField(Mapped, field, mod);
         }
-        typeFields.push(typeField);
+    }
+
+    function addCompField(type:CompFieldType, field:ClassField, mod:{valGet:Expr->Expr, valSet:Expr->Expr}) {
+        var storeDefField = null;
+        final ct = TypeTools.toComplexType(field.type);
+        final storeField = {
+            name: field.name,
+            pos: field.pos,
+            kind: switch type {
+                case BitECS(typeName):
+                    var bitEcsType = bitEcsTypeToCT.find(t -> t.names.contains(typeName));
+                    if (bitEcsType == null) haxe.macro.Context.error('Failed to determine bitECS type.', field.pos);
+                    storeDefField = {
+                        field: field.name,
+                        expr: bitEcsType.expr.expr.at(field.pos)
+                    };
+                    FieldType.FVar(bitEcsType.ct);
+                case Mapped:
+                    FieldType.FVar(macro:js.lib.Map<bitecs.Entity, $ct>);
+            },
+            doc: field.doc
+        };
+
+        var initExpr = null;
         var texpr = field.expr();
         if (texpr != null) {
             final initVal = haxe.macro.Context.getTypedExpr(texpr);
-            initFieldExprs.push(macro comp.$fname = $initVal); // `comp` is parameter of the `init` function.
+            final fname = field.name;
+            initExpr = macro comp.$fname = $initVal; // `comp` is parameter of the `init` function.
         }
 
-        wrapperFields.push({
-            name: fname,
-            pos: field.pos,
-            kind: FProp('get', 'set', ct),
-            doc: field.doc,
-            access: [APublic]
+        compFields.push({
+            storeField: storeField,
+            storeDefField: storeDefField,
+            type: type,
+            ct: ct,
+            initExpr: initExpr,
+            mod: mod
         });
-        wrapperFields.push({
-            name: 'get_$fname',
-            pos: field.pos,
-            kind: FFun({
-                args: [],
-                expr: EReturn(modValueGet((isMap ? macro this.store.$fname.get(this.ent) : macro this.store.$fname[this.ent]))).at()
-            }),
-            access: [AInline]
-        });
-        wrapperFields.push({
-            name: 'set_$fname',
-            pos: field.pos,
-            kind: FFun({
-                args: [{ name: 'v' }],
-                expr: {
-                    var val = modValueSet(macro v);
-                    var setter = isMap ? macro this.store.$fname.set(this.ent, $val) : macro this.store.$fname[this.ent] = $val;
-                    macro return {
-                        $setter;
-                        v;
+    }
+
+    function buildWrapper() {
+        var wrapperFields:Array<Field> = [];
+        for (field in compFields) {
+            final fname = field.storeField.name;
+            final prop = Member.prop(fname, field.ct, field.storeField.pos);
+            prop.publish();
+            wrapperFields.push(prop);
+            var valExpr = macro v;
+            if (field.mod.valSet != null) valExpr = field.mod.valSet(valExpr);
+            var propExprs = switch field.type {
+                case BitECS(_):
+                    {
+                        getter: macro this.store.$fname[this.ent],
+                        setter: macro this.store.$fname[this.ent] = $valExpr,
                     }
-                }
-            }),
-            access: [AInline]
-        });
-    }
-    var initExpr = macro @:pos(typePos) Bitecs.defineComponent(${EObjectDecl(objFields).at(typePos)});
-    if (mappedFields.length > 0) {
-        initExpr = macro final c = $initExpr;
-        for (f in mappedFields) {
-            var name = f.name;
-            initExpr = initExpr.concat((macro c.$name).assign(macro new js.lib.Map()));
-        }
-        initExpr = initExpr.concat(macro c);
-    };
-
-    final storeType = ComplexType.TAnonymous(typeFields);
-    final wrapperPath = { pack: ['bitecs', 'gen'], name: compName };
-
-    // The init function – sets the defaults, if any.
-    wrapperFields.push({
-        name: 'init',
-        pos: typePos,
-        kind: FFun({
-            args: [{ name: 'comp', type: TPath(wrapperPath) }],
-            ret: voidType,
-            expr: initFieldExprs.toBlock(typePos)
-        }),
-        access: [APublic, AStatic, AInline], // Static, but also enabled via `@:using`.
-        doc: 'Sets the component values to their defaults.'
-    });
-
-    final wrapperTd:TypeDefinition = {
-        pack: wrapperPath.pack,
-        name: wrapperPath.name,
-        pos: typePos,
-        meta: [{ name: ':using', params: [['bitecs', 'gen', compName].drill()], pos: typePos }],
-        kind: TDAbstract(TAnonymous([
-            { name: 'ent', kind: FVar(entityType), pos: typePos },
-            { name: 'store', kind: FVar(storeType), pos: typePos }
-        ])),
-        fields: wrapperFields.concat([
-            {
-                name: 'new',
-                kind: FFun({
-                    args: [{ name: 'ent' }, { name: 'store' }],
-                    expr: macro this = { ent: ent, store: store }
-                }),
-                access: [APublic, AInline],
-                pos: typePos
+                case Mapped:
+                    {
+                        getter: macro this.store.$fname.get(this.ent),
+                        setter: macro this.store.$fname.set(this.ent, $valExpr),
+                    }
             }
-        ])
-    };
+            if (field.mod.valGet != null) propExprs.getter = field.mod.valGet(propExprs.getter);
+            var getter = Member.getter(fname, field.storeField.pos, propExprs.getter);
+            getter.isBound = true;
+            wrapperFields.push(getter);
+            var setter = Member.setter(fname, 'v', field.storeField.pos, propExprs.setter);
+            setter.isBound = true;
+            wrapperFields.push(setter);
+        }
+        var defObjFields = compFields.map(f -> f.storeDefField).filter(f -> f != null);
+        initExpr = macro @:pos(typePos) Bitecs.defineComponent(${EObjectDecl(defObjFields).at(typePos)});
+        if (compFields.exists(f -> f.type.match(Mapped))) {
+            initExpr = macro final c = $initExpr;
+            for (f in compFields) if (f.type.match(Mapped)) {
+                var name = f.storeField.name;
+                initExpr = initExpr.concat((macro c.$name).assign(macro new js.lib.Map()));
+            }
+            initExpr = initExpr.concat(macro c);
+        };
 
-    // trace(new haxe.macro.Printer().printTypeDefinition(wrapperTd));
+        storeType = ComplexType.TAnonymous(compFields.map(f -> f.storeField));
+        wrapperPath = { pack: ['bitecs', 'gen'], name: name };
 
-    return {
-        storeType: storeType,
-        initExpr: initExpr,
-        wrapper: wrapperTd,
-        wrapperPath: wrapperPath
+        // The init function – sets the defaults, if any.
+        var initFieldExprs = compFields.map(f -> f.initExpr).filter(e -> e != null);
+        wrapperFields.push({
+            name: 'init',
+            pos: typePos,
+            kind: FFun({
+                args: [{ name: 'comp', type: TPath(wrapperPath) }],
+                ret: voidType,
+                expr: initFieldExprs.toBlock(typePos)
+            }),
+            access: [APublic, AStatic, AInline], // Static, but also enabled via `@:using`.
+            doc: 'Sets the component values to their defaults.'
+        });
+
+        wrapper = {
+            pack: wrapperPath.pack,
+            name: wrapperPath.name,
+            pos: typePos,
+            meta: [{ name: ':using', params: [['bitecs', 'gen', name].drill()], pos: typePos }],
+            kind: TDAbstract(TAnonymous([
+                { name: 'ent', kind: FVar(entityType), pos: typePos },
+                { name: 'store', kind: FVar(storeType), pos: typePos }
+            ])),
+            fields: wrapperFields.concat([
+                {
+                    name: 'new',
+                    kind: FFun({
+                        args: [{ name: 'ent' }, { name: 'store' }],
+                        expr: macro this = { ent: ent, store: store }
+                    }),
+                    access: [APublic, AInline],
+                    pos: typePos
+                }
+            ])
+        };
+
+        // trace(new haxe.macro.Printer().printTypeDefinition(wrapper));
     }
+
 }
 
-typedef CompDef = {
+private enum CompFieldType {
 
-    storeType:ComplexType,
-    initExpr:Expr,
-    wrapper:TypeDefinition,
-    wrapperPath:TypePath
+    BitECS(typeName:String);
+    Mapped;
 
 }
 
