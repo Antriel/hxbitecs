@@ -78,8 +78,9 @@ class ComponentDefinition {
                             case _:
                                 Context.error('Could not process component field type.', field.pos);
                         }
-                    case _:
-                        Context.error('Could not process component field type.', field.pos);
+                    case _: // Abstract over some instance type.
+                        addCompField(Mapped, field, mod);
+                        return;
                 }
                 addCompField(BitECS(typeName), field, mod);
             case TFun(args, ret):
