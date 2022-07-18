@@ -49,6 +49,18 @@ class TestComponentMacro extends Test {
         Assert.equals('hello world', stringComp.string);
     }
 
+    public function testFunctions() {
+        var w = new MyWorld();
+        var e = Bitecs.addEntity(w);
+        var comps = w.addComponent([SimpleComponent, StringComponent], e);
+        comps.simpleComponent.setTo(1);
+        Assert.equals(1, comps.simpleComponent.int);
+        Assert.equals(1, comps.simpleComponent.float);
+        comps.stringComponent.int = 123;
+        Assert.equals('hello123', comps.stringComponent.appendInt());
+        Assert.equals('hello123', comps.stringComponent.string);
+    }
+
 }
 
 private typedef MyWorld = World<SimpleComponent, SimplePrecisionComponent, StringComponent>;
@@ -58,6 +70,11 @@ private class SimpleComponent {
     public var float:Float = 10;
     public var int:Int;
     public var bool:Bool;
+
+    public inline function setTo(v:Int) {
+        float = v;
+        int = v;
+    }
 
 }
 
@@ -72,5 +89,9 @@ private class StringComponent {
 
     public var int:Int;
     public var string:String = "hello";
+
+    public inline function appendInt() {
+        return string = string + int;
+    }
 
 }

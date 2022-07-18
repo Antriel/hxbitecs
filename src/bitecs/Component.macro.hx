@@ -50,6 +50,7 @@ class ComponentDefinition {
         var initExpr:Expr;
         var mod:{valGet:Expr->Expr, valSet:Expr->Expr};
     }> = [];
+    final funFields:Array<Field> = [];
 
     public function new(name:String, typePos:Position, fields:Array<ClassField>) {
         this.name = name;
@@ -84,8 +85,31 @@ class ComponentDefinition {
                 }
                 addCompField(BitECS(typeName), field, mod);
             case TFun(args, ret):
-                // TODO handle functions.
-                return;
+                var expr = Context.getTypedExpr(field.expr());
+                var func = switch expr.expr {
+                    case EFunction(kind, f): f;
+                    case _: Context.error("Expected EFunction.", expr.pos);
+                }
+                func.expr = replaceThis(func.expr);
+                var access:Array<Access> = [];
+                if (field.isPublic) access.push(APublic);
+                switch field.kind {
+                    case FMethod(k): switch k {
+                            case MethNormal:
+                            case MethInline: access.push(AInline);
+                            case MethDynamic: Context.error('Unsupported method type.', field.pos);
+                            case MethMacro: access.push(AMacro);
+                        }
+                    case _: throw "unexpected";
+                }
+                funFields.push({
+                    name: field.name,
+                    doc: field.doc,
+                    access: access,
+                    kind: FFun(func),
+                    pos: field.pos,
+                    meta: field.meta.get()
+                });
             case _:
                 addCompField(Mapped, field, mod);
         }
@@ -187,6 +211,8 @@ class ComponentDefinition {
             doc: 'Sets the component values to their defaults.'
         });
 
+        for (f in funFields) wrapperFields.push(f);
+
         wrapper = {
             pack: wrapperPath.pack,
             name: wrapperPath.name,
@@ -237,3 +263,11 @@ private var bitEcsTypeToCT = [
     { names: ['f64', 'float64'], ct: macro:js.lib.Float64Array, expr: macro bitecs.Bitecs.Types.f64 },
     { names: ['eid', 'entity'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid },
 ];
+
+private function replaceThis(e:Expr):Expr {
+    return switch e.expr {
+        case EField({ expr: EConst(CIdent("this")) }, field):
+            { expr: EConst(CIdent(field)), pos: e.pos };
+        case _: ExprTools.map(e, replaceThis);
+    }
+}
