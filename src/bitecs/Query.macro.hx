@@ -133,12 +133,23 @@ class QueryBuilder {
         }:Function));
         mOn.isBound = true;
 
+        var mEntered = Member.method('enteredQuery', ({
+            args: [],
+            expr: macro return bitecs.Bitecs.enterQuery(this)
+        }:Function));
+        mEntered.isBound = true;
+        var mExited = Member.method('exitedQuery', ({
+            args: [],
+            expr: macro return bitecs.Bitecs.exitQuery(this)
+        }:Function));
+        mExited.isBound = true;
+
         var queryWrapperTd:TypeDefinition = {
             pack: ['bitecs', 'gen'],
             name: ctx.name + 'Wrapper',
             pos: ctx.pos,
             kind: TDAbstract(queryType, [queryType]),
-            fields: [mNew, mInit, mIterator, mKeyValIter, mOn]
+            fields: [mNew, mInit, mIterator, mKeyValIter, mOn, mEntered, mExited]
         };
         // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperTd));
 

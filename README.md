@@ -5,7 +5,7 @@ Work in progress.
 - [x] Reset/initialize components when adding them to an entity.
 - [x] Abstraction over query.
 - [ ] Consider getting component stores from the query directly, instead of through the world?
-- [ ] Add basic world-related bitECS API to `World`.
+- [x] Add basic world-related bitECS API to `World`.
 - [x] Queries should be defined in Systems, ~~but equal queries shouldn't be defined twice~~. That means we will need to generate some common storage type, probably in the World.
 - [ ] Support for bitECS array types.
 - [ ] Support for Not queries.

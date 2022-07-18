@@ -22,11 +22,66 @@ class TestQueryMacro extends Test {
         Assert.equals(null, w.getComponent(CompC, entities[4]).s);
     }
 
+    public function testEnterExit() {
+        var w = new MyWorld();
+        var entities = [for (_ in 0...5) Bitecs.addEntity(w)];
+        var group1 = entities.slice(0, 3);
+        var group2 = entities.slice(3);
+        for (e in entities) w.addComponent(CompA, e);
+        function getResult() return {
+            enteredA: [for (e in w.s.a.enteredQuery()(w)) e],
+            enteredB: [for (e in w.s.ab.enteredQuery()(w)) e],
+            enteredC: [for (e in w.s.bc.enteredQuery()(w)) e],
+            exitedA: [for (e in w.s.a.exitedQuery()(w)) e],
+            exitedB: [for (e in w.s.ab.exitedQuery()(w)) e],
+            exitedC: [for (e in w.s.bc.exitedQuery()(w)) e],
+        }
+        var res = getResult();
+        Assert.same(entities, res.enteredA);
+        Assert.same([], res.enteredB);
+        Assert.same([], res.enteredC);
+        Assert.same([], res.exitedA);
+        Assert.same([], res.exitedB);
+        Assert.same([], res.exitedC);
+        for (e in entities) w.addComponent(CompB, e);
+        var res = getResult();
+        Assert.same([], res.enteredA);
+        Assert.same(entities, res.enteredB);
+        Assert.same([], res.enteredC);
+        Assert.same([], res.exitedA);
+        Assert.same([], res.exitedB);
+        Assert.same([], res.exitedC);
+        for (e in entities) w.addComponent(CompC, e);
+        var res = getResult();
+        Assert.same([], res.enteredA);
+        Assert.same([], res.enteredB);
+        Assert.same(entities, res.enteredC);
+        Assert.same([], res.exitedA);
+        Assert.same([], res.exitedB);
+        Assert.same([], res.exitedC);
+        for (e in group1) w.removeComponent(CompA, e);
+        var res = getResult();
+        Assert.same([], res.enteredA);
+        Assert.same([], res.enteredB);
+        Assert.same([], res.enteredC);
+        Assert.same(group1, res.exitedA);
+        Assert.same(group1, res.exitedB);
+        Assert.same([], res.exitedC);
+        for (e in group2) w.removeComponent([CompA, CompC], e);
+        var res = getResult();
+        Assert.same([], res.enteredA);
+        Assert.same([], res.enteredB);
+        Assert.same([], res.enteredC);
+        Assert.same(group2, res.exitedA);
+        Assert.same(group2, res.exitedB);
+        Assert.same(group2, res.exitedC);
+    }
+
 }
 
 private class MyWorld extends World<CompA, CompB, CompC> {
 
-    var s:MySystem;
+    public var s:MySystem;
 
     public function new() {
         super();
@@ -41,9 +96,10 @@ private class MyWorld extends World<CompA, CompB, CompC> {
 
 private class MySystem {
 
-    var a:Query<CompA>;
-    var ab:Query<CompA, CompB>;
-    var bc:Query<CompB, CompC>;
+    public var a:Query<CompA>;
+    public var ab:Query<CompA, CompB>;
+    public var bc:Query<CompB, CompC>;
+
     final w:MyWorld;
 
     public function new(w:MyWorld) {
