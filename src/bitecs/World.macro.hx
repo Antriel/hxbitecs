@@ -37,6 +37,7 @@ private function registerComponent(comp:Type, ?name:String) {
     }
     if (!exists) {
         final def = Component.getDefinition(comp);
+        for (hook in Plugin.componentHooks) hook(comp, def);
         Context.defineType(def.wrapper);
         components.set(comp, {
             name: name,
