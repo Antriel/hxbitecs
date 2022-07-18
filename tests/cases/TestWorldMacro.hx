@@ -34,6 +34,12 @@ class TestWorldMacro extends Test {
         Assert.isFalse(w.entityExists(eid));
     }
 
+    public function testWorldOf() {
+        // For generic systems wanting a world that contains some components, but without needing to specify the full type.
+        var w:World.WorldOf<MyComponent1> = new World<MyComponent1, {comp3:MyComponent3}>();
+        Assert.notNull(w.myComponent1);
+    }
+
 }
 
 class MyComponent1 { }

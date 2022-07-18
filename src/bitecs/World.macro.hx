@@ -54,8 +54,10 @@ function build() {
         for (compType in ctx.types) {
             for (comp in parseComponent(compType)) addComponentField(fields, comp);
         }
+
+        var structure = getWorldStructure(ctx.types);
         var name = ctx.name;
-        var f = macro class $name implements bitecs.World.IWorld { }
+        var f = macro class $name implements bitecs.World.IWorld<$structure> { }
 
         f.meta.push({
             name: ':using',
@@ -67,6 +69,24 @@ function build() {
 
     });
     return TypeTools.toComplexType(res);
+}
+
+function buildWorldOf() {
+    var types = BuildCache.getParams('bitecs.WorldOf').sure();
+    return getWorldStructure(types);
+}
+
+private function getWorldStructure(types:Array<Type>) {
+    var fields:Array<Field> = [];
+    for (compType in types) for (comp in parseComponent(compType)) {
+        fields.push({
+            name: comp.name,
+            kind: FVar(comp.def.storeType),
+            access: [APublic, AFinal],
+            pos: comp.type.getPosition().sure()
+        });
+    }
+    return ComplexType.TAnonymous(fields);
 }
 
 private function addComponentField(fields:Array<Field>, c):Void {

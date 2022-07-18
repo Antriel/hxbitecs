@@ -8,5 +8,7 @@ package bitecs;
 
 }
 
+@:genericBuild(bitecs.World.buildWorldOf()) class WorldOf<Rest> { }
+
 // Used for static extensions.
-@:remove interface IWorld { }
+@:remove interface IWorld<Components> { }

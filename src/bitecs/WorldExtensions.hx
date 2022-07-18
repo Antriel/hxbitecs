@@ -10,24 +10,24 @@ using tink.MacroApi;
 class WorldExtensions {
 
     #if !macro
-    public static inline function addEntity(world:World.IWorld) {
+    public static inline function addEntity(world:AnyWorld) {
         return Bitecs.addEntity(world);
     }
 
-    public static inline function removeEntity(world:World.IWorld, eid:Entity) {
+    public static inline function removeEntity(world:AnyWorld, eid:Entity) {
         return Bitecs.removeEntity(world, eid);
     }
 
-    public static inline function getEntityComponents(world:World.IWorld, eid:Entity):Array<Dynamic> {
+    public static inline function getEntityComponents(world:AnyWorld, eid:Entity):Array<Dynamic> {
         return Bitecs.getEntityComponents(world, eid);
     }
 
-    public static inline function entityExists(world:World.IWorld, eid:Entity) {
+    public static inline function entityExists(world:AnyWorld, eid:Entity) {
         return Bitecs.entityExists(world, eid);
     }
     #end
 
-    public static macro function addComponent(world:ExprOf<World.IWorld>, comp:Expr, eid:ExprOf<Entity>) {
+    public static macro function addComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
         return processCompExpr(comp, (cname, wrapper) -> macro @:mergeBlock {
             bitecs.Bitecs.addComponent($world, $world.$cname, $eid);
             var $cname = new $wrapper($eid, $world.$cname);
@@ -35,17 +35,17 @@ class WorldExtensions {
         });
     }
 
-    public static macro function hasComponent(world:ExprOf<World.IWorld>, comp:Expr, eid:ExprOf<Entity>) {
+    public static macro function hasComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
         return processCompExpr(comp,
             (cname, wrapper) -> macro var $cname = bitecs.Bitecs.hasComponent($world, $world.$cname, $eid)
         );
     }
 
-    public static macro function getComponent(world:ExprOf<World.IWorld>, comp:Expr, eid:ExprOf<Entity>) {
+    public static macro function getComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
         return processCompExpr(comp, (cname, wrapper) -> macro var $cname = new $wrapper($eid, $world.$cname));
     }
 
-    public static macro function removeComponent(world:ExprOf<World.IWorld>, comp:Expr, eid:ExprOf<Entity>, ?reset:ExprOf<Bool>) {
+    public static macro function removeComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>, ?reset:ExprOf<Bool>) {
         return processCompExpr(comp, (cname, wrapper) -> {
             var args = [world, macro $world.$cname, eid];
             if (!reset.expr.match(EConst(CIdent('null')))) args.push(reset);
@@ -84,3 +84,7 @@ class WorldExtensions {
     #end
 
 }
+
+#if !macro
+typedef AnyWorld = World.IWorld<Dynamic>
+#end
