@@ -26,6 +26,10 @@ function parseComponent(type:Type) return switch type {
 }
 
 private function registerComponent(comp:Type, ?name:String) {
+    if (name == null) name = switch TypeTools.toComplexType(comp) {
+        case TPath(p): firstToLower(if (p.sub != null) p.sub else p.name);
+        case _: throw "unexpected";
+    };
     var exists = components.exists(comp);
     if (exists && name != null && components.get(comp).name != name) {
         Context.warning('Component ${comp.getID()} was already registered under a different name, replacing it.', Context.currentPos());
@@ -34,10 +38,6 @@ private function registerComponent(comp:Type, ?name:String) {
     if (!exists) {
         final def = Component.getDefinition(comp);
         Context.defineType(def.wrapper);
-        if (name == null) name = switch TypeTools.toComplexType(comp) {
-            case TPath(p): firstToLower(if (p.sub != null) p.sub else p.name);
-            case _: throw "unexpected";
-        };
         components.set(comp, {
             name: name,
             type: comp,
