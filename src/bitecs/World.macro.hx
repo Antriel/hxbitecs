@@ -55,8 +55,13 @@ function build() {
             for (comp in parseComponent(compType)) addComponentField(fields, comp);
         }
         var name = ctx.name;
-        var f = macro class $name { }
+        var f = macro class $name implements bitecs.World.IWorld { }
 
+        f.meta.push({
+            name: ':using',
+            pos: Context.currentPos(),
+            params: [macro bitecs.WorldExtensions]
+        });
         f.fields = fields;
         f;
 
@@ -71,42 +76,6 @@ private function addComponentField(fields:Array<Field>, c):Void {
         pos: Context.currentPos(),
         access: [APublic, AFinal]
     });
-    fields.push({
-        name: 'add' + firstToUpper(c.name),
-        pos: Context.currentPos(),
-        kind: FFun({
-            args: [{ name: 'eid', type: entityType }],
-            expr: addComponentImpl(c)
-        }),
-        access: [APublic, AInline]
-    });
-    fields.push({
-        name: 'get' + firstToUpper(c.name),
-        pos: Context.currentPos(),
-        kind: FFun({
-            args: [{ name: 'eid', type: entityType }],
-            expr: getComponentImpl(c)
-        }),
-        access: [APublic, AInline]
-    });
-}
-
-private function addComponentImpl(comp) {
-    final cname = comp.name;
-    final wrapperPath = comp.def.wrapperPath;
-    return macro {
-        bitecs.Bitecs.addComponent(this, this.$cname, eid);
-        var $cname = new $wrapperPath(eid, this.$cname);
-        $i{cname}.init();
-        // Result value is just the wrapper.
-        return $i{cname};
-    }
-}
-
-private function getComponentImpl(comp) {
-    final cname = comp.name;
-    final wrapperPath = comp.def.wrapperPath;
-    return macro return new $wrapperPath(eid, this.$cname);
 }
 
 private var entityType = macro:bitecs.Entity;

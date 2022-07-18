@@ -9,8 +9,7 @@ class TestEntityOfMacro extends Test {
     public function testSimple():Void {
         final q = new Query<MyCompA, MyCompB>(w);
         final e = Bitecs.addEntity(w);
-        w.addMyCompA(e);
-        w.addMyCompB(e);
+        w.addComponent([MyCompA, MyCompB], e);
         for (e in q.on(w)) {
             e.myCompA.x++;
             e.myCompB.y++;

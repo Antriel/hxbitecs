@@ -7,21 +7,19 @@ class TestQueryMacro extends Test {
     public function testSimple() {
         var w = new MyWorld();
         var entities = [for (i in 0...5) Bitecs.addEntity(w)];
-        w.addCompA(entities[0]);
-        w.addCompA(entities[1]);
-        w.addCompB(entities[1]);
-        w.addCompB(entities[2]);
-        w.addCompB(entities[3]);
-        w.addCompC(entities[3]);
-        w.addCompC(entities[4]);
+        w.addComponent(CompA, entities[0]);
+        w.addComponent([CompA, CompB], entities[1]);
+        w.addComponent(CompB, entities[2]);
+        w.addComponent([CompB, CompC], entities[3]);
+        w.addComponent(CompC, entities[4]);
         w.update();
-        Assert.equals(1, w.getCompA(entities[0]).x);
-        Assert.equals(2, w.getCompA(entities[1]).x);
-        Assert.equals(entities[1], w.getCompB(entities[1]).i);
-        Assert.equals(-1, w.getCompB(entities[2]).i);
-        Assert.equals(-1, w.getCompB(entities[3]).i);
-        Assert.equals('Entity ' + entities[3], w.getCompC(entities[3]).s);
-        Assert.equals(null, w.getCompC(entities[4]).s);
+        Assert.equals(1, w.getComponent(CompA, entities[0]).x);
+        Assert.equals(2, w.getComponent(CompA, entities[1]).x);
+        Assert.equals(entities[1], w.getComponent(CompB, entities[1]).i);
+        Assert.equals(-1, w.getComponent(CompB, entities[2]).i);
+        Assert.equals(-1, w.getComponent(CompB, entities[3]).i);
+        Assert.equals('Entity ' + entities[3], w.getComponent(CompC, entities[3]).s);
+        Assert.equals(null, w.getComponent(CompC, entities[4]).s);
     }
 
 }

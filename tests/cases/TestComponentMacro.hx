@@ -36,14 +36,14 @@ class TestComponentMacro extends Test {
         while (Bitecs.addEntity(w) != e2) { };
         Bitecs.addComponent(w, w.simpleComponent, e1, true); // bitECS resets the value to 0.
         Assert.notEquals(25, w.simpleComponent.float[e1]);
-        w.addSimpleComponent(e2); // Our wrapper initializes the values.
+        w.addComponent(SimpleComponent, e2); // Our wrapper initializes the values.
         Assert.equals(10, w.simpleComponent.float[e2]);
     }
 
     public function testMapWrapper() {
         var w = new MyWorld();
         var e = Bitecs.addEntity(w);
-        var stringComp = w.addStringComponent(e);
+        var stringComp = w.addComponent(StringComponent, e);
         Assert.equals('hello', stringComp.string);
         stringComp.string += ' world';
         Assert.equals('hello world', stringComp.string);
