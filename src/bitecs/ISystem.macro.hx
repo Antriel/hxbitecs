@@ -22,7 +22,6 @@ function build() {
         case FFun(f) if (field.name == 'new'): newField = field;
         case _:
     }
-    if (queries.length == 0) return fields;
 
     for (itf in Context.getLocalClass().get().interfaces) if (itf.t.get().name == 'ISystem') {
         worldType = itf.params[0];
