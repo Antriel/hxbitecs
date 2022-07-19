@@ -28,8 +28,21 @@ function getDefinition(t:Type):ComponentDefinition {
         case TAbstract(t, params): t.get().impl.get().statics.get();
         case _: [];
     }
-    var fields = Context.followWithAbstracts(t).getFields().sure().concat(extraFields);
-    return new ComponentDefinition(compName, typePos, fields);
+    final actualType = Context.followWithAbstracts(t);
+    var fields = actualType.getFields().sure().concat(extraFields);
+    final def = new ComponentDefinition(compName, typePos, fields);
+    switch actualType {
+        case TInst(t, params):
+            var ctr = t.get().constructor;
+            if (ctr != null) {
+                var field = ctr.get();
+                if (!field.meta.has(':compilerGenerated'))
+                    def.customCtr(field);
+            }
+        case _:
+    }
+    def.buildWrapper();
+    return def;
 }
 
 class ComponentDefinition {
@@ -38,6 +51,7 @@ class ComponentDefinition {
     public var initExpr:Expr;
     public var wrapper:TypeDefinition;
     public var wrapperPath:TypePath;
+    public var initExtraArgs:Array<FunctionArg> = [];
 
     final name:String;
     final typePos:Position;
@@ -55,12 +69,21 @@ class ComponentDefinition {
         var mod:{valGet:Expr->Expr, valSet:Expr->Expr};
     }> = [];
     final funFields:Array<Field> = [];
+    final initExtraExpr:Array<Expr> = [];
 
     public function new(name:String, typePos:Position, fields:Array<ClassField>) {
         this.name = name;
         this.typePos = typePos;
         for (f in fields) processField(f);
-        buildWrapper();
+    }
+
+    public function customCtr(ctr:ClassField):Void {
+        switch Context.getTypedExpr(ctr.expr()).expr {
+            case EFunction(kind, f):
+                for (a in f.args) initExtraArgs.push(a);
+                initExtraExpr.push(replaceThis(f.expr, macro comp)); // `comp` is parameter of the `init` function.
+            case _: throw "unexpected";
+        }
     }
 
     function processField(field:ClassField) {
@@ -160,7 +183,7 @@ class ComponentDefinition {
         });
     }
 
-    function buildWrapper() {
+    public function buildWrapper() {
         var wrapperFields:Array<Field> = [];
         for (field in compFields) {
             final fname = field.storeField.name;
@@ -209,13 +232,17 @@ class ComponentDefinition {
             name: 'init',
             pos: typePos,
             kind: FFun({
-                args: [{ name: 'comp', type: TPath(wrapperPath) }],
+                args: [{ name: 'comp', type: TPath(wrapperPath) }].concat(initExtraArgs),
                 ret: voidType,
-                expr: initFieldExprs.toBlock(typePos)
+                expr: initFieldExprs.concat(initExtraExpr).toBlock(typePos)
             }),
             access: [APublic, AStatic, AInline], // Static, but also enabled via `@:using`.
             doc: 'Sets the component values to their defaults.'
         });
+        final selfCt = ComplexType.TPath(wrapperPath);
+        var tthis = Member.method('tthis', ({ args: [], expr: macro return (cast this:$selfCt) }:Function));
+        tthis.isBound = true;
+        wrapperFields.push(tthis);
 
         for (f in funFields) wrapperFields.push(f);
 
@@ -270,10 +297,15 @@ private var bitEcsTypeToCT = [
     { names: ['eid', 'entity'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid },
 ];
 
-private function replaceThis(e:Expr):Expr {
-    return switch e.expr {
-        case EField({ expr: EConst(CIdent("this")) }, field):
-            { expr: EConst(CIdent(field)), pos: e.pos };
-        case _: ExprTools.map(e, replaceThis);
+private function replaceThis(e:Expr, with:Expr = null):Expr {
+    var on = with != null ? with : macro tthis();
+    function replace(e:Expr) {
+        return switch e.expr {
+            case EField({ expr: EConst(CIdent("this")) }, field):
+                macro $on.$field;
+            // { expr: EConst(CIdent(field)), pos: e.pos };
+            case _: ExprTools.map(e, replace);
+        }
     }
+    return replace(e);
 }

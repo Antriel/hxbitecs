@@ -10,11 +10,8 @@ import bitecs.Utils;
 
 using tink.MacroApi;
 
-@:persistent var components:TypeMap<{
-    name:String,
-    type:Type,
-    def:ComponentDefinition
-}> = new TypeMap(t -> switch t { // Don't follow typedefs, so we can alias components.
+// Don't follow typedefs, so we can alias components.
+@:persistent var components:TypeMap<ComponentData> = new TypeMap(t -> switch t {
     case TLazy(f): f();
     case _: t;
 });
@@ -100,3 +97,11 @@ private function addComponentField(fields:Array<Field>, c):Void {
 }
 
 private var entityType = macro:bitecs.Entity;
+
+typedef ComponentData = {
+
+    name:String,
+    type:Type,
+    def:ComponentDefinition
+
+};
