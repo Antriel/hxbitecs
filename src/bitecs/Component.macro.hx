@@ -24,8 +24,12 @@ function getDefinition(t:Type):ComponentDefinition {
             n;
         }
     };
-
-    return new ComponentDefinition(compName, typePos, t.getFields().sure());
+    var extraFields = switch t.reduce() { // Find abstract fields to also copy.
+        case TAbstract(t, params): t.get().impl.get().statics.get();
+        case _: [];
+    }
+    var fields = Context.followWithAbstracts(t).getFields().sure().concat(extraFields);
+    return new ComponentDefinition(compName, typePos, fields);
 }
 
 class ComponentDefinition {
@@ -102,6 +106,8 @@ class ComponentDefinition {
                         }
                     case _: throw "unexpected";
                 }
+                // Remove `this` arg. (Comes from extra static fields of the Abstract implementation type.)
+                func.args = func.args.filter(a -> a.name != 'this');
                 funFields.push({
                     name: field.name,
                     doc: field.doc,

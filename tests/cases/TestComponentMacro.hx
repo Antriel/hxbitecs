@@ -61,6 +61,16 @@ class TestComponentMacro extends Test {
         Assert.equals('hello123', comps.stringComponent.string);
     }
 
+    public function testAbstractComp() {
+        var w = new World<AbstractComp>();
+        var e = Bitecs.addEntity(w);
+        var c = w.addComponent(AbstractComp, e);
+        c.x = 10;
+        Assert.equals(10, w.abstractComp.x[e]);
+        c.y = 10;
+        Assert.equals(20, c.sum());
+    }
+
 }
 
 private typedef MyWorld = World<SimpleComponent, SimplePrecisionComponent, StringComponent>;
@@ -93,5 +103,11 @@ private class StringComponent {
     public inline function appendInt() {
         return string = string + int;
     }
+
+}
+
+private abstract AbstractComp({x:Float, y:Float}) {
+
+    public inline function sum() return this.x + this.y;
 
 }
