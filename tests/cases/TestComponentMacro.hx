@@ -71,11 +71,21 @@ class TestComponentMacro extends Test {
         Assert.equals(20, c.sum());
     }
 
+    public function testComplex() {
+        var w = new World<ComplexComponent>();
+        var e = Bitecs.addEntity(w);
+        var c = w.addComponent(ComplexComponent, e, { initVal: 10 }); // Should ask for ctr init vars.
+        Assert.equals(10, c.initVal);
+        Assert.isTrue(c.simpleFunc());
+        c.complexFunc('world');
+        Assert.equals('hello world', c.customSet);
+    }
+
 }
 
 private typedef MyWorld = World<SimpleComponent, SimplePrecisionComponent, StringComponent>;
 
-private class SimpleComponent {
+class SimpleComponent {
 
     public var float:Float = 10;
     public var int:Int;
@@ -88,14 +98,14 @@ private class SimpleComponent {
 
 }
 
-private class SimplePrecisionComponent {
+class SimplePrecisionComponent {
 
     @:bitecs.type(f32) public var float:Float;
     @:bitecs.type(ui8) public var int:Int;
 
 }
 
-private class StringComponent {
+class StringComponent {
 
     public var int:Int;
     public var string:String = "hello";
@@ -106,8 +116,29 @@ private class StringComponent {
 
 }
 
-private abstract AbstractComp({x:Float, y:Float}) {
+abstract AbstractComp({x:Float, y:Float}) {
 
     public inline function sum() return this.x + this.y;
+
+}
+
+@:bitecs.selfUsing class ComplexComponent {
+
+    public var writeable:Int = 1;
+    public final initVal:Int;
+    public var customSet(default, null):String; // TODO support `final` and `null` access.
+
+    public function new(initVal:Int) { // Required init param.
+        this.initVal = initVal;
+    }
+
+    public inline function simpleFunc() return customSet == null;
+
+    // Another approach that works for more complex functions.
+    // While creating the abstract wrapper, we go from `TypedExpr` to `Expr`, which doesn't always work out well.
+    // With static extensions, we work directly with the abstract type, so it all works.
+    public inline static function complexFunc(c:ComponentOf<ComplexComponent>, name:String) {
+        c.customSet = 'hello $name';
+    }
 
 }

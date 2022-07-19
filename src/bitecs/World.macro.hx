@@ -32,6 +32,11 @@ private function registerComponent(comp:Type, ?name:String) {
         Context.warning('Component ${comp.getID()} was already registered under a different name, replacing it.', Context.currentPos());
         exists = false;
     }
+    if (exists) try {
+        Context.resolveType(TPath(components.get(comp).def.wrapperPath), Context.currentPos());
+    } catch (e) {
+        exists = false; // Type was invalidated.
+    }
     if (!exists) {
         final def = Component.getDefinition(comp);
         for (hook in Plugin.componentHooks) hook(comp, def);

@@ -42,6 +42,9 @@ function getDefinition(t:Type):ComponentDefinition {
         case _:
     }
     def.buildWrapper();
+
+    if (Lambda.exists(t.getMeta(), m -> m.has(':bitecs.selfUsing')))
+        def.wrapper.meta.push({ name: ':using', params: [t.toExactString().resolve()], pos: typePos });
     return def;
 }
 
@@ -67,6 +70,7 @@ class ComponentDefinition {
         var ct:ComplexType;
         var initExpr:Expr;
         var mod:{valGet:Expr->Expr, valSet:Expr->Expr};
+        var writable:Bool;
     }> = [];
     final funFields:Array<Field> = [];
     final initExtraExpr:Array<Expr> = [];
@@ -78,7 +82,8 @@ class ComponentDefinition {
     }
 
     public function customCtr(ctr:ClassField):Void {
-        switch Context.getTypedExpr(ctr.expr()).expr {
+        var expr = ctr.expr();
+        if (expr != null) switch Context.getTypedExpr(ctr.expr()).expr {
             case EFunction(kind, f):
                 for (a in f.args) initExtraArgs.push(a);
                 initExtraExpr.push(replaceThis(f.expr, macro comp)); // `comp` is parameter of the `init` function.
@@ -179,7 +184,8 @@ class ComponentDefinition {
             type: type,
             ct: ct,
             initExpr: initExpr,
-            mod: mod
+            mod: mod,
+            writable: !field.isFinal,
         });
     }
 
@@ -211,6 +217,13 @@ class ComponentDefinition {
             var setter = Member.setter(fname, 'v', field.storeField.pos, propExprs.setter);
             setter.isBound = true;
             wrapperFields.push(setter);
+            // TODO support `final` fields. Would need to rewrite initialization to use the setter directly.
+            // if (!field.writable) { // Keep the setter (used in initialization), but don't expose it.
+            //     prop.kind = switch prop.kind {
+            //         case FProp(get, set, t, e): FProp(get, 'never', t, e);
+            //         case _: throw "unexpected";
+            //     }
+            // }
         }
         var defObjFields = compFields.map(f -> f.storeDefField).filter(f -> f != null);
         initExpr = macro @:pos(typePos) Bitecs.defineComponent(${EObjectDecl(defObjFields).at(typePos)});
@@ -240,7 +253,7 @@ class ComponentDefinition {
             doc: 'Sets the component values to their defaults.'
         });
         final selfCt = ComplexType.TPath(wrapperPath);
-        var tthis = Member.method('tthis', ({ args: [], expr: macro return (cast this:$selfCt) }:Function));
+        var tthis = Member.method('tthis', false, ({ args: [], expr: macro return (cast this:$selfCt) }:Function));
         tthis.isBound = true;
         wrapperFields.push(tthis);
 
