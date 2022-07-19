@@ -28,7 +28,7 @@ class WorldExtensions {
     #end
 
     public static macro function addComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
-        return processCompExpr(comp, (cname, wrapper) -> macro @:mergeBlock {
+        return processCompExpr(comp, (cname, wrapper, pos) -> macro @:pos(pos) @:mergeBlock {
             bitecs.Bitecs.addComponent($world, $world.$cname, $eid);
             var $cname = new $wrapper($eid, $world.$cname);
             $i{cname}.init();
@@ -37,24 +37,24 @@ class WorldExtensions {
 
     public static macro function hasComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
         return processCompExpr(comp,
-            (cname, wrapper) -> macro var $cname = bitecs.Bitecs.hasComponent($world, $world.$cname, $eid)
+            (cname, wrapper, pos) -> macro @:pos(pos) var $cname = bitecs.Bitecs.hasComponent($world, $world.$cname, $eid)
         );
     }
 
     public static macro function getComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
-        return processCompExpr(comp, (cname, wrapper) -> macro var $cname = new $wrapper($eid, $world.$cname));
+        return processCompExpr(comp, (cname, wrapper, pos) -> macro @:pos(pos) var $cname = new $wrapper($eid, $world.$cname));
     }
 
     public static macro function removeComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>, ?reset:ExprOf<Bool>) {
-        return processCompExpr(comp, (cname, wrapper) -> {
-            var args = [world, macro $world.$cname, eid];
+        return processCompExpr(comp, (cname, wrapper, pos) -> {
+            var args = [world, macro @:pos(pos) $world.$cname, eid];
             if (!reset.expr.match(EConst(CIdent('null')))) args.push(reset);
-            macro bitecs.Bitecs.removeComponent($a{args});
+            macro @:pos(pos) bitecs.Bitecs.removeComponent($a{args});
         }, false);
     }
 
     #if macro
-    private static function processCompExpr(comp:Expr, action:(name:String, wrapper:TypePath) -> Expr, ret = true):Expr {
+    private static function processCompExpr(comp:Expr, action:(name:String, wrapper:TypePath, pos:Position) -> Expr, ret = true):Expr {
         var res = [];
         var names = [];
         function add(cExpr:Expr) {
@@ -67,7 +67,7 @@ class WorldExtensions {
                 Context.error('Could not find type: $e', cExpr.pos);
             }
             names.push(compData.name);
-            res.push(action(compData.name, compData.def.wrapperPath));
+            res.push(action(compData.name, compData.def.wrapperPath, cExpr.pos));
         }
         switch comp.expr {
             case EArrayDecl(values):
