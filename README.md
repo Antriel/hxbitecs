@@ -9,3 +9,4 @@ Work in progress.
 - [x] Queries should be defined in Systems, ~~but equal queries shouldn't be defined twice~~. That means we will need to generate some common storage type, probably in the World.
 - [ ] Support for bitECS array types.
 - [ ] Support for Not queries.
+- [ ] Rethink macros. Going from `TypedExpr` to `Expr` is too buggy.

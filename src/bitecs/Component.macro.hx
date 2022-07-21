@@ -42,9 +42,10 @@ function getDefinition(t:Type):ComponentDefinition {
         case _:
     }
     def.buildWrapper();
+    def.exactName = t.toExactString();
 
     if (Lambda.exists(t.getMeta(), m -> m.has(':bitecs.selfUsing')))
-        def.wrapper.meta.push({ name: ':using', params: [t.toExactString().resolve()], pos: typePos });
+        def.wrapper.meta.push({ name: ':using', params: [def.exactName.resolve()], pos: typePos });
     return def;
 }
 
@@ -55,6 +56,7 @@ class ComponentDefinition {
     public var wrapper:TypeDefinition;
     public var wrapperPath:TypePath;
     public var initExtraArgs:Array<FunctionArg> = [];
+    public var exactName:String;
 
     final name:String;
     final typePos:Position;

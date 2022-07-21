@@ -16,10 +16,31 @@ using tink.MacroApi;
     case _: t;
 });
 
-function parseComponent(type:Type) return switch type {
-    case TAnonymous(_.get().fields => anonFields):
-        [for (f in anonFields) registerComponent(f.type, f.name)];
-    case _: [registerComponent(type)];
+function parseComponent(type:Type) {
+    switch type.reduce() {
+        case TAbstract(_.get() => t, params):
+            if (t.meta.has(':bitecs.comps')) { // Parse from generated type.
+                var params = t.meta.extract(':bitecs.comps')[0].params;
+                var result = [];
+                for (p in params) {
+                    try {
+                        var name = p.toString();
+                        var t = Context.getType(name);
+                        if (!components.exists(t)) Context.error('Component "$name" not registered yet?', Context.currentPos());
+                        result.push(components.get(t));
+                    } catch (e) {
+                        Context.error('Failed to resolve components.', Context.currentPos());
+                    }
+                }
+                return result;
+            }
+        case _:
+    }
+    return switch type {
+        case TAnonymous(_.get().fields => anonFields):
+            [for (f in anonFields) registerComponent(f.type, f.name)];
+        case _: [registerComponent(type)];
+    }
 }
 
 private function registerComponent(comp:Type, ?name:String) {

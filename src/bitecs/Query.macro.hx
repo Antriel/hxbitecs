@@ -30,7 +30,12 @@ private final intType = macro:Int;
 class QueryBuilder {
 
     final ctx:BuildContextN;
-    final stores:Array<{name:String, type:ComplexType, wrapperPath:TypePath}>;
+    final stores:Array<{
+        name:String,
+        type:ComplexType,
+        wrapperPath:TypePath,
+        compExactName:String
+    }>;
     final worldType:ComplexType;
     final queryType:ComplexType;
 
@@ -39,7 +44,8 @@ class QueryBuilder {
         stores = ctx.types.map(t -> World.components.get(t)).map(c -> {
             name: c.name,
             type: c.def.storeType,
-            wrapperPath: c.def.wrapperPath
+            wrapperPath: c.def.wrapperPath,
+            compExactName: c.def.exactName
         });
         // for (s in stores) trace(ComplexType.TPath(s.wrapperPath).toType());
         worldType = TAnonymous(stores.map(s -> ({ name: s.name, kind: FVar(s.type), pos: ctx.pos, access: [AFinal] }:Field)));
@@ -155,7 +161,8 @@ class QueryBuilder {
             name: ctx.name + 'Wrapper',
             pos: ctx.pos,
             kind: TDAbstract(queryType, [queryType]),
-            fields: [mNew, mInit, mIterator, mKeyValIter, mOn, mEntered, mExited, mGetLength]
+            fields: [mNew, mInit, mIterator, mKeyValIter, mOn, mEntered, mExited, mGetLength],
+            meta: [{ name: ':bitecs.comps', pos: ctx.pos, params: stores.map(s -> s.compExactName.resolve()) }]
         };
         // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperTd));
 
