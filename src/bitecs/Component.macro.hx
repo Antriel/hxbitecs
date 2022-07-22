@@ -103,7 +103,13 @@ class ComponentDefinition {
                 var typeName = meta == null ? null : meta.params[0].toString();
                 // Look further down the abstract type, to handle custom abstracts.
                 if (typeName == null) typeName = switch t.get().type.reduce() {
-                    case TAbstract(_.get().name => name, params): switch name {
+                    case TAbstract(_.get().name => name, params):
+                        switch TypeTools.follow(field.type, true) {
+                            case TAbstract(_.get().name == "Null" => true, _):
+                                Context.error('Nullable types are not supported.', field.pos);
+                            case _:
+                        }
+                        switch name {
                             case 'Float': 'f64';
                             case 'Int': 'i32';
                             case 'Bool':
