@@ -31,13 +31,13 @@ class TestEntityOfMacro extends Test {
 
 typedef MyQuery = Query<MyCompA, MyCompB>;
 
-private class MyCompA {
+private class MyCompA implements IComponent {
 
     var x:Int = 0;
 
 }
 
-private class MyCompB {
+private class MyCompB implements IComponent {
 
     var y:Int = 0;
 

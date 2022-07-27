@@ -9,4 +9,7 @@ Work in progress.
 - [x] Queries should be defined in Systems, ~~but equal queries shouldn't be defined twice~~. That means we will need to generate some common storage type, probably in the World.
 - [ ] Support for bitECS array types.
 - [ ] Support for Not queries.
-- [ ] Rethink macros. Going from `TypedExpr` to `Expr` is too buggy.
+- [ ] Rethink macros.
+    - [x] Components – going from `TypedExpr` to `Expr` is too buggy.
+    - [ ] More explicit approach for World and Systems, less typing?
+    - [ ] Include the world in the queries, so we can just directly iterate them?

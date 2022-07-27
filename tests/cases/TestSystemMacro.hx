@@ -20,4 +20,4 @@ private class MySystem implements ISystem<MyWorld> {
 
 private class MyWorld extends World<MyComp> { }
 
-private class MyComp { }
+private class MyComp implements IComponent { }

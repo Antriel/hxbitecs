@@ -120,19 +120,19 @@ private class MySystem {
 
 }
 
-private class CompA {
+private class CompA implements IComponent {
 
     public var x:Float = -1;
 
 }
 
-private class CompB {
+private class CompB implements IComponent {
 
     public var i:Int = -1;
 
 }
 
-private class CompC {
+private class CompC implements IComponent {
 
     public var s:String;
 

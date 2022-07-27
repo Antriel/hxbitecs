@@ -61,23 +61,13 @@ class TestComponentMacro extends Test {
         Assert.equals('hello123', comps.stringComponent.string);
     }
 
-    public function testAbstractComp() {
-        var w = new World<AbstractComp>();
-        var e = Bitecs.addEntity(w);
-        var c = w.addComponent(AbstractComp, e);
-        c.x = 10;
-        Assert.equals(10, w.abstractComp.x[e]);
-        c.y = 10;
-        Assert.equals(20, c.sum());
-    }
-
     public function testComplex() {
         var w = new World<ComplexComponent>();
         var e = Bitecs.addEntity(w);
         var c = w.addComponent(ComplexComponent, e, { initVal: 10 }); // Should ask for ctr init vars.
         Assert.equals(10, c.initVal);
         Assert.isTrue(c.simpleFunc());
-        c.complexFunc('world');
+        c.customSetter('world');
         Assert.equals('hello world', c.customSet);
         // c.initVal = 10; // Should be a compiler error.
         // c.customSet = 'foo'; // Also a compiler error.
@@ -87,7 +77,7 @@ class TestComponentMacro extends Test {
 
 private typedef MyWorld = World<SimpleComponent, SimplePrecisionComponent, StringComponent>;
 
-class SimpleComponent {
+class SimpleComponent implements IComponent {
 
     public var float:Float = 10;
     public var int:Int;
@@ -100,14 +90,14 @@ class SimpleComponent {
 
 }
 
-class SimplePrecisionComponent {
+class SimplePrecisionComponent implements IComponent {
 
     @:bitecs.type(f32) public var float:Float;
     @:bitecs.type(ui8) public var int:Int;
 
 }
 
-class StringComponent {
+class StringComponent implements IComponent {
 
     public var int:Int;
     public var string:String = "hello";
@@ -118,13 +108,7 @@ class StringComponent {
 
 }
 
-abstract AbstractComp({x:Float, y:Float}) {
-
-    public inline function sum() return this.x + this.y;
-
-}
-
-@:bitecs.selfUsing class ComplexComponent {
+class ComplexComponent implements IComponent {
 
     public var writeable:Int = 1;
     public final initVal:Int;
@@ -136,11 +120,8 @@ abstract AbstractComp({x:Float, y:Float}) {
 
     public inline function simpleFunc() return customSet == null;
 
-    // Another approach that works for more complex functions.
-    // While creating the abstract wrapper, we go from `TypedExpr` to `Expr`, which doesn't always work out well.
-    // With static extensions, we work directly with the abstract type, so it all works.
-    public inline static function complexFunc(c:ComponentOf<ComplexComponent>, name:String) @:privateAccess {
-        c._customSet = 'hello $name'; // Awkward usage... :/
+    public inline function customSetter(name:String) {
+        customSet = 'hello $name';
     }
 
 }

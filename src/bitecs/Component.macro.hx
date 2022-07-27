@@ -1,5 +1,6 @@
 package bitecs;
 
+import haxe.macro.ComplexTypeTools;
 import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
@@ -7,6 +8,25 @@ import haxe.macro.TypeTools;
 
 using Lambda;
 using tink.MacroApi;
+
+typedef ComponentExprs = {
+
+    var fields:Array<Field>;
+    var usings:Array<ClassType>;
+
+}
+
+@:persistent var cache:TypeMap<ComponentExprs> = new TypeMap();
+
+function cacheExprs() {
+    var fields = Context.getBuildFields();
+    var t = Context.getLocalType();
+    cache.set(t, {
+        fields: fields,
+        usings: Context.getLocalUsing().map(_ -> _.get()),
+    });
+    return []; // Keep the actual class empty.
+}
 
 @:persistent private var usedNames:Map<String, Int> = [];
 
@@ -24,31 +44,12 @@ function getDefinition(t:Type):ComponentDefinition {
             n;
         }
     };
-    var extraFields = switch t.reduce() { // Find abstract fields to also copy.
-        case TAbstract(t, params): t.get().impl.get().statics.get();
-        case _: [];
-    }
     final actualType = Context.followWithAbstracts(t);
-    var fields = actualType.getFields().sure().concat(extraFields);
-    final def = new ComponentDefinition(compName, typePos, fields);
-    switch actualType {
-        case TInst(t, params):
-            var ctr = t.get().constructor;
-            if (ctr != null) {
-                var field = ctr.get();
-                if (!field.meta.has(':compilerGenerated'))
-                    def.customCtr(field);
-            }
-        case _:
-    }
+    final cached = cache.get(actualType);
+    if (cached == null) Context.error("Type does not extend from bitecs.Component.", typePos);
+    final def = new ComponentDefinition(compName, typePos, cached);
     def.buildWrapper();
     def.exactName = t.toExactString();
-
-    if (Lambda.exists(t.getMeta(), m -> m.has(':bitecs.selfUsing'))) {
-        var src = def.exactName.resolve();
-        def.wrapper.meta.push({ name: ':using', params: [src], pos: typePos });
-        def.wrapper.meta.push({ name: ':allow', params: [src], pos: typePos }); // This doesn't seem to work...
-    }
     return def;
 }
 
@@ -63,6 +64,7 @@ class ComponentDefinition {
 
     final name:String;
     final typePos:Position;
+    final source:ComponentExprs;
     final compFields:Array<{
 
         /** The field that needs to exist on the actual component storage. */
@@ -80,39 +82,36 @@ class ComponentDefinition {
     final funFields:Array<Field> = [];
     final initExtraExpr:Array<Expr> = [];
 
-    public function new(name:String, typePos:Position, fields:Array<ClassField>) {
+    public function new(name:String, typePos:Position, source:ComponentExprs) {
         this.name = name;
         this.typePos = typePos;
-        for (f in fields) processField(f);
+        this.source = source;
+        for (f in source.fields) processField(f);
     }
 
-    public function customCtr(ctr:ClassField):Void {
-        var expr = ctr.expr();
-        if (expr != null) switch Context.getTypedExpr(ctr.expr()).expr {
-            case EFunction(kind, f):
-                for (a in f.args) initExtraArgs.push(a);
-                initExtraExpr.push(replaceThis(f.expr, macro comp)); // `comp` is parameter of the `init` function.
-            case _: throw "unexpected";
+    public function customCtr(ctr:Field, f:Function):Void {
+        if (f.expr != null) {
+            for (a in f.args) initExtraArgs.push(a);
+            initExtraExpr.push(replaceThis(f.expr, macro comp)); // `comp` is parameter of the `init` function.
         }
     }
 
-    function processField(field:ClassField) {
+    function processField(field:Field) {
         var mod = { valGet: null, valSet: null }; // Conversion of value to/from the stored type.
-        switch field.type.reduce() {
-            case TAbstract(t, params):
-                if (params.length > 0) throw "unexpected";
-                var meta = field.meta.extract(':bitecs.type')[0];
-                // TODO check if provided type name is valid for the actual field type?
-                var typeName = meta == null ? null : meta.params[0].toString();
-                // Look further down the abstract type, to handle custom abstracts.
-                if (typeName == null) typeName = switch t.get().type.reduce() {
+        var typeMeta = field.meta.find(m -> m.name == ':bitecs.type');
+        switch field.kind {
+            case FProp('default', 'null', ct, e) | FVar(ct, e):
+                if (ct == null) Context.error('Type not specified.', field.pos);
+                var t = ComplexTypeTools.toType(ct);
+                switch TypeTools.follow(t, true) {
+                    case TAbstract(_.get().name == "Null" => true, _):
+                        Context.error('Nullable types are not supported.', field.pos);
+                    case _:
+                }
+                final compFieldType = switch Context.followWithAbstracts(t) {
                     case TAbstract(_.get().name => name, params):
-                        switch TypeTools.follow(field.type, true) {
-                            case TAbstract(_.get().name == "Null" => true, _):
-                                Context.error('Nullable types are not supported.', field.pos);
-                            case _:
-                        }
-                        switch name {
+                        final typeName = if (typeMeta != null) typeMeta.params[0].toString()
+                        else switch name {
                             case 'Float': 'f64';
                             case 'Int': 'i32';
                             case 'Bool':
@@ -122,52 +121,31 @@ class ComponentDefinition {
                             case _:
                                 Context.error('Could not process component field type.', field.pos);
                         }
-                    case _: // Abstract over some instance type.
-                        addCompField(Mapped, field, mod);
-                        return;
+                        BitECS(typeName);
+                    case _:
+                        Mapped;
                 }
-                addCompField(BitECS(typeName), field, mod);
-            case TFun(args, ret):
-                var expr = Context.getTypedExpr(field.expr());
-                var func = switch expr.expr {
-                    case EFunction(kind, f): f;
-                    case _: Context.error("Expected EFunction.", expr.pos);
+                final writable = !field.access.contains(AFinal) && !field.kind.match(FProp(_, 'null', _));
+                addCompField(compFieldType, mod, writable, e, field);
+            case FFun(f):
+                if (field.name == 'new') {
+                    customCtr(field, f);
+                } else {
+                    f.expr = replaceThis(f.expr);
+                    funFields.push(field);
                 }
-                func.expr = replaceThis(func.expr);
-                var access:Array<Access> = [];
-                if (field.isPublic) access.push(APublic);
-                switch field.kind {
-                    case FMethod(k): switch k {
-                            case MethNormal:
-                            case MethInline: access.push(AInline);
-                            case MethDynamic: Context.error('Unsupported method type.', field.pos);
-                            case MethMacro: access.push(AMacro);
-                        }
-                    case _: throw "unexpected";
-                }
-                // Remove `this` arg. (Comes from extra static fields of the Abstract implementation type.)
-                func.args = func.args.filter(a -> a.name != 'this');
-                funFields.push({
-                    name: field.name,
-                    doc: field.doc,
-                    access: access,
-                    kind: FFun(func),
-                    pos: field.pos,
-                    meta: field.meta.get()
-                });
-            case _:
-                addCompField(Mapped, field, mod);
+            case FProp('get', _) | FProp(_, 'set', _):
+                Context.error('Custom getter/setter is not supported. Use an explicit function.', field.pos);
+            case _: Context.error("Failed to process field.", field.pos);
         }
     }
 
-    function addCompField(type:CompFieldType, field:ClassField, mod:{valGet:Expr->Expr, valSet:Expr->Expr}) {
+    function addCompField(type:CompFieldType, mod:{valGet:Expr->Expr, valSet:Expr->Expr}, writable:Bool, expr:Expr, field:Field) {
         var storeDefField = null;
-        final writable = switch field.kind {
-            case FVar(AccNormal, AccCtor | AccNo): false;
-            case FVar(AccNormal, AccNormal): true;
-            case _: Context.error("Unsupported field access.", field.pos);
+        final ct = switch field.kind {
+            case FVar(t, _) | FProp(_, _, t): t;
+            case _: throw "unexpected";
         };
-        final ct = TypeTools.toComplexType(field.type);
         final storeField = {
             name: field.name,
             pos: field.pos,
@@ -187,12 +165,10 @@ class ComponentDefinition {
         };
 
         var initExpr = null;
-        var texpr = field.expr();
-        if (texpr != null) {
-            final initVal = haxe.macro.Context.getTypedExpr(texpr);
+        if (expr != null) {
             var fname = field.name;
             if (!writable) fname = '_' + fname;
-            initExpr = macro comp.$fname = $initVal; // `comp` is parameter of the `init` function.
+            initExpr = macro comp.$fname = $expr; // `comp` is parameter of the `init` function.
         }
 
         compFields.push({

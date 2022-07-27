@@ -42,8 +42,8 @@ class TestWorldMacro extends Test {
 
 }
 
-class MyComponent1 { }
+class MyComponent1 implements IComponent { }
 
-class MyComponent2 { }
+class MyComponent2 implements IComponent { }
 
 typedef MyComponent3 = MyComponent2;
