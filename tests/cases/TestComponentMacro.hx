@@ -79,6 +79,8 @@ class TestComponentMacro extends Test {
         Assert.isTrue(c.simpleFunc());
         c.complexFunc('world');
         Assert.equals('hello world', c.customSet);
+        // c.initVal = 10; // Should be a compiler error.
+        // c.customSet = 'foo'; // Also a compiler error.
     }
 
 }
@@ -126,7 +128,7 @@ abstract AbstractComp({x:Float, y:Float}) {
 
     public var writeable:Int = 1;
     public final initVal:Int;
-    public var customSet(default, null):String; // TODO support `final` and `null` access.
+    public var customSet(default, null):String;
 
     public function new(initVal:Int) { // Required init param.
         this.initVal = initVal;
@@ -137,8 +139,8 @@ abstract AbstractComp({x:Float, y:Float}) {
     // Another approach that works for more complex functions.
     // While creating the abstract wrapper, we go from `TypedExpr` to `Expr`, which doesn't always work out well.
     // With static extensions, we work directly with the abstract type, so it all works.
-    public inline static function complexFunc(c:ComponentOf<ComplexComponent>, name:String) {
-        c.customSet = 'hello $name';
+    public inline static function complexFunc(c:ComponentOf<ComplexComponent>, name:String) @:privateAccess {
+        c._customSet = 'hello $name'; // Awkward usage... :/
     }
 
 }

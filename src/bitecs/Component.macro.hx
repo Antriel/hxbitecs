@@ -44,8 +44,11 @@ function getDefinition(t:Type):ComponentDefinition {
     def.buildWrapper();
     def.exactName = t.toExactString();
 
-    if (Lambda.exists(t.getMeta(), m -> m.has(':bitecs.selfUsing')))
-        def.wrapper.meta.push({ name: ':using', params: [def.exactName.resolve()], pos: typePos });
+    if (Lambda.exists(t.getMeta(), m -> m.has(':bitecs.selfUsing'))) {
+        var src = def.exactName.resolve();
+        def.wrapper.meta.push({ name: ':using', params: [src], pos: typePos });
+        def.wrapper.meta.push({ name: ':allow', params: [src], pos: typePos }); // This doesn't seem to work...
+    }
     return def;
 }
 
@@ -159,6 +162,11 @@ class ComponentDefinition {
 
     function addCompField(type:CompFieldType, field:ClassField, mod:{valGet:Expr->Expr, valSet:Expr->Expr}) {
         var storeDefField = null;
+        final writable = switch field.kind {
+            case FVar(AccNormal, AccCtor | AccNo): false;
+            case FVar(AccNormal, AccNormal): true;
+            case _: Context.error("Unsupported field access.", field.pos);
+        };
         final ct = TypeTools.toComplexType(field.type);
         final storeField = {
             name: field.name,
@@ -182,7 +190,8 @@ class ComponentDefinition {
         var texpr = field.expr();
         if (texpr != null) {
             final initVal = haxe.macro.Context.getTypedExpr(texpr);
-            final fname = field.name;
+            var fname = field.name;
+            if (!writable) fname = '_' + fname;
             initExpr = macro comp.$fname = $initVal; // `comp` is parameter of the `init` function.
         }
 
@@ -193,7 +202,7 @@ class ComponentDefinition {
             ct: ct,
             initExpr: initExpr,
             mod: mod,
-            writable: !field.isFinal,
+            writable: writable
         });
     }
 
@@ -225,13 +234,29 @@ class ComponentDefinition {
             var setter = Member.setter(fname, 'v', field.storeField.pos, propExprs.setter);
             setter.isBound = true;
             wrapperFields.push(setter);
-            // TODO support `final` fields. Would need to rewrite initialization to use the setter directly.
-            // if (!field.writable) { // Keep the setter (used in initialization), but don't expose it.
-            //     prop.kind = switch prop.kind {
-            //         case FProp(get, set, t, e): FProp(get, 'never', t, e);
-            //         case _: throw "unexpected";
-            //     }
-            // }
+            if (!field.writable) {
+                final privateName = '_' + prop.name;
+                for (func in funFields) switch func.kind {
+                    case FFun(f):
+                        f.expr = replaceIdent(prop.name, f.expr, macro $i{privateName});
+                    case _: throw 'unexpected';
+                }
+                for (i => e in initExtraExpr) initExtraExpr[i] = replaceField(prop.name, e, privateName);
+                prop.name = privateName;
+                setter.name = 'set_' + privateName;
+                getter.name = 'get_' + privateName;
+                prop.isPublic = false;
+                final publicProp = Member.prop(fname, field.ct, field.storeField.pos);
+                publicProp.publish();
+                publicProp.kind = switch publicProp.kind {
+                    case FProp(get, set, t, e): FProp(get, 'never', t, e);
+                    case _: throw "unexpected";
+                }
+                wrapperFields.push(publicProp);
+                var publicGetter = Member.getter(fname, field.storeField.pos, macro return $i{privateName});
+                publicGetter.isBound = true;
+                wrapperFields.push(publicGetter);
+            }
         }
         var defObjFields = compFields.map(f -> f.storeDefField).filter(f -> f != null);
         initExpr = macro @:pos(typePos) Bitecs.defineComponent(${EObjectDecl(defObjFields).at(typePos)});
@@ -319,14 +344,25 @@ private var bitEcsTypeToCT = [
 ];
 
 private function replaceThis(e:Expr, with:Expr = null):Expr {
-    var on = with != null ? with : macro tthis();
+    return replaceIdent('this', e, with != null ? with : macro tthis());
+}
+
+private function replaceIdent(ident:String, on:Expr, with:Expr):Expr {
     function replace(e:Expr) {
         return switch e.expr {
-            case EField({ expr: EConst(CIdent("this")) }, field):
-                macro $on.$field;
-            // { expr: EConst(CIdent(field)), pos: e.pos };
+            case EConst(CIdent(_ == ident => true)): with;
             case _: ExprTools.map(e, replace);
         }
     }
-    return replace(e);
+    return replace(on);
+}
+
+private function replaceField(field:String, on:Expr, with:String):Expr {
+    function replace(e:Expr) {
+        return switch e.expr {
+            case EField(e, _ == field => true): { expr: EField(e, with), pos: e.pos };
+            case _: ExprTools.map(e, replace);
+        }
+    }
+    return replace(on);
 }
