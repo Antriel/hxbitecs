@@ -9,21 +9,58 @@ import haxe.macro.TypeTools;
 using Lambda;
 using tink.MacroApi;
 
-typedef ComponentExprs = {
+typedef ComponentSource = {
 
-    var fields:Array<Field>;
-    var usings:Array<ClassType>;
+    var fields:Array<SourceField>;
+    var imports:Array<ImportExpr>;
+    var usings:Array<TypePath>;
 
 }
 
-@:persistent var cache:TypeMap<ComponentExprs> = new TypeMap();
+typedef SourceField = {
+
+    var field:Field;
+    var type:Null<Type>;
+    var ct:ComplexType;
+
+};
+
+@:persistent var cache:TypeMap<ComponentSource> = new TypeMap();
 
 function cacheExprs() {
     var fields = Context.getBuildFields();
     var t = Context.getLocalType();
+    var pack = switch t.reduce(true) {
+        case TInst(t, params): t.get().pack.join('.');
+        case _: Context.error("Should be a class.", Context.currentPos());
+    }
     cache.set(t, {
-        fields: fields,
-        usings: Context.getLocalUsing().map(_ -> _.get()),
+        fields: fields.map(field -> {
+            final type = switch field.kind {
+                case FProp(_, _, ct, _) | FVar(ct, _):
+                    if (ct == null) Context.error('Type not specified.', field.pos);
+                    ComplexTypeTools.toType(ct);
+                case _: null;
+            }
+            {
+                field: field,
+                type: type,
+                ct: type == null ? null : type.toComplex()
+            }
+        }),
+        imports: [{ // Import all from the original package, as we generate the type in a different one.
+            path: [{ name: pack, pos: Context.currentPos() }],
+            mode: IAll
+        }].concat(Context.getLocalImports()),
+        usings: Context.getLocalUsing().map(ref -> {
+            var classType = ref.get();
+            {
+                pack: classType.pack,
+                name: classType.module,
+                sub: classType.name,
+                params: []
+            };
+        }),
     });
     return []; // Keep the actual class empty.
 }
@@ -61,10 +98,10 @@ class ComponentDefinition {
     public var wrapperPath:TypePath;
     public var initExtraArgs:Array<FunctionArg> = [];
     public var exactName:String;
+    public var source:ComponentSource;
 
     final name:String;
     final typePos:Position;
-    final source:ComponentExprs;
     final compFields:Array<{
 
         /** The field that needs to exist on the actual component storage. */
@@ -82,33 +119,32 @@ class ComponentDefinition {
     final funFields:Array<Field> = [];
     final initExtraExpr:Array<Expr> = [];
 
-    public function new(name:String, typePos:Position, source:ComponentExprs) {
+    public function new(name:String, typePos:Position, source:ComponentSource) {
         this.name = name;
         this.typePos = typePos;
         this.source = source;
         for (f in source.fields) processField(f);
     }
 
-    public function customCtr(ctr:Field, f:Function):Void {
+    function customCtr(ctr:Field, f:Function):Void {
         if (f.expr != null) {
             for (a in f.args) initExtraArgs.push(a);
-            initExtraExpr.push(replaceThis(f.expr, macro comp)); // `comp` is parameter of the `init` function.
+            initExtraExpr.push(f.expr);
         }
     }
 
-    function processField(field:Field) {
+    function processField(src:SourceField) {
+        final field = src.field;
         var mod = { valGet: null, valSet: null }; // Conversion of value to/from the stored type.
         var typeMeta = field.meta.find(m -> m.name == ':bitecs.type');
         switch field.kind {
-            case FProp('default', 'null', ct, e) | FVar(ct, e):
-                if (ct == null) Context.error('Type not specified.', field.pos);
-                var t = ComplexTypeTools.toType(ct);
-                switch TypeTools.follow(t, true) {
+            case FProp('default', 'null', _, e) | FVar(_, e):
+                switch TypeTools.follow(src.type, true) {
                     case TAbstract(_.get().name == "Null" => true, _):
                         Context.error('Nullable types are not supported.', field.pos);
                     case _:
                 }
-                final compFieldType = switch Context.followWithAbstracts(t) {
+                final compFieldType = switch Context.followWithAbstracts(src.type) {
                     case TAbstract(_.get().name => name, params):
                         final typeName = if (typeMeta != null) typeMeta.params[0].toString()
                         else switch name {
@@ -126,26 +162,20 @@ class ComponentDefinition {
                         Mapped;
                 }
                 final writable = !field.access.contains(AFinal) && !field.kind.match(FProp(_, 'null', _));
-                addCompField(compFieldType, mod, writable, e, field);
+                addCompField(compFieldType, mod, writable, e, src);
             case FFun(f):
-                if (field.name == 'new') {
-                    customCtr(field, f);
-                } else {
-                    f.expr = replaceThis(f.expr);
-                    funFields.push(field);
-                }
+                if (field.name == 'new') customCtr(field, f);
+                else funFields.push(field);
             case FProp('get', _) | FProp(_, 'set', _):
                 Context.error('Custom getter/setter is not supported. Use an explicit function.', field.pos);
             case _: Context.error("Failed to process field.", field.pos);
         }
     }
 
-    function addCompField(type:CompFieldType, mod:{valGet:Expr->Expr, valSet:Expr->Expr}, writable:Bool, expr:Expr, field:Field) {
+    function addCompField(type:CompFieldType, mod:{valGet:Expr->Expr, valSet:Expr->Expr}, writable:Bool, expr:Expr, src:SourceField) {
+        final field = src.field;
+        final ct = src.ct;
         var storeDefField = null;
-        final ct = switch field.kind {
-            case FVar(t, _) | FProp(_, _, t): t;
-            case _: throw "unexpected";
-        };
         final storeField = {
             name: field.name,
             pos: field.pos,
@@ -166,9 +196,8 @@ class ComponentDefinition {
 
         var initExpr = null;
         if (expr != null) {
-            var fname = field.name;
-            if (!writable) fname = '_' + fname;
-            initExpr = macro comp.$fname = $expr; // `comp` is parameter of the `init` function.
+            final fname = field.name;
+            initExpr = macro this.$fname = $expr;
         }
 
         compFields.push({
@@ -184,6 +213,7 @@ class ComponentDefinition {
 
     public function buildWrapper() {
         var wrapperFields:Array<Field> = [];
+        var privateFields:Array<String> = [];
         for (field in compFields) {
             final fname = field.storeField.name;
             final prop = Member.prop(fname, field.ct, field.storeField.pos);
@@ -211,13 +241,8 @@ class ComponentDefinition {
             setter.isBound = true;
             wrapperFields.push(setter);
             if (!field.writable) {
+                privateFields.push(prop.name);
                 final privateName = '_' + prop.name;
-                for (func in funFields) switch func.kind {
-                    case FFun(f):
-                        f.expr = replaceIdent(prop.name, f.expr, macro $i{privateName});
-                    case _: throw 'unexpected';
-                }
-                for (i => e in initExtraExpr) initExtraExpr[i] = replaceField(prop.name, e, privateName);
                 prop.name = privateName;
                 setter.name = 'set_' + privateName;
                 getter.name = 'get_' + privateName;
@@ -254,11 +279,11 @@ class ComponentDefinition {
             name: 'init',
             pos: typePos,
             kind: FFun({
-                args: [{ name: 'comp', type: TPath(wrapperPath) }].concat(initExtraArgs),
+                args: initExtraArgs,
                 ret: voidType,
-                expr: initFieldExprs.concat(initExtraExpr).toBlock(typePos)
+                expr: remap(initFieldExprs.concat(initExtraExpr).toBlock(typePos), privateFields)
             }),
-            access: [APublic, AStatic, AInline], // Static, but also enabled via `@:using`.
+            access: [APublic, AInline],
             doc: 'Sets the component values to their defaults.'
         });
         final selfCt = ComplexType.TPath(wrapperPath);
@@ -268,11 +293,16 @@ class ComponentDefinition {
 
         for (f in funFields) wrapperFields.push(f);
 
+        // Remap `this` and readonly fields.
+        for (f in funFields) switch f.kind {
+            case FFun(f): f.expr = remap(f.expr, privateFields);
+            case _: throw "unexpected";
+        }
+
         wrapper = {
             pack: wrapperPath.pack,
             name: wrapperPath.name,
             pos: typePos,
-            meta: [{ name: ':using', params: [['bitecs', 'gen', name].drill()], pos: typePos }],
             kind: TDAbstract(TAnonymous([
                 { name: 'ent', kind: FVar(entityType), pos: typePos },
                 { name: 'store', kind: FVar(storeType), pos: typePos }
@@ -319,26 +349,15 @@ private var bitEcsTypeToCT = [
     { names: ['eid', 'entity'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid },
 ];
 
-private function replaceThis(e:Expr, with:Expr = null):Expr {
-    return replaceIdent('this', e, with != null ? with : macro tthis());
-}
-
-private function replaceIdent(ident:String, on:Expr, with:Expr):Expr {
+private function remap(e:Expr, privateFields:Array<String>):Expr {
     function replace(e:Expr) {
         return switch e.expr {
-            case EConst(CIdent(_ == ident => true)): with;
+            case EConst(CIdent(_ == 'this' => true)): macro @:pos(e.pos) tthis();
+            case EField({ expr: EConst(CIdent(_ == 'this' => true)) }, field):
+                if (privateFields.contains(field)) field = '_' + field;
+                macro @:pos(e.pos) tthis().$field;
             case _: ExprTools.map(e, replace);
         }
     }
-    return replace(on);
-}
-
-private function replaceField(field:String, on:Expr, with:String):Expr {
-    function replace(e:Expr) {
-        return switch e.expr {
-            case EField(e, _ == field => true): { expr: EField(e, with), pos: e.pos };
-            case _: ExprTools.map(e, replace);
-        }
-    }
-    return replace(on);
+    return replace(e);
 }

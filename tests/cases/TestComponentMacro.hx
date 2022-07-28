@@ -1,5 +1,7 @@
 package cases;
 
+import data.FooBar;
+
 class TestComponentMacro extends Test {
 
     public function testSimple() {
@@ -113,6 +115,7 @@ class ComplexComponent implements IComponent {
     public var writeable:Int = 1;
     public final initVal:Int;
     public var customSet(default, null):String;
+    public var foo(default, null):FooBar; // Test imports from different package.
 
     public function new(initVal:Int) { // Required init param.
         this.initVal = initVal;
@@ -121,7 +124,7 @@ class ComplexComponent implements IComponent {
     public inline function simpleFunc() return customSet == null;
 
     public inline function customSetter(name:String) {
-        customSet = 'hello $name';
+        this.customSet = 'hello $name'; // Need to use `this` so the macro correctly rewrites to private setter.
     }
 
 }
