@@ -26,6 +26,11 @@ class WorldExtensions {
     public static inline function entityExists(world:AnyWorld, eid:Entity) {
         return Bitecs.entityExists(world, eid);
     }
+
+    public static inline function removeAllComponents(world:AnyWorld, eid:Entity, reset:Bool = false) {
+        final comps = Bitecs.getEntityComponents(world, eid);
+        for (c in comps) Bitecs.removeComponent(world, c, eid, reset);
+    }
     #end
 
     public static macro function addComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>, init = null) {
