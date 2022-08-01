@@ -65,7 +65,7 @@ class QueryBuilder {
         var fields:Array<Field> = args.map(arg -> ({
             name: arg.name,
             pos: ctx.pos,
-            access: [AFinal],
+            access: [AFinal, APublic],
             kind: FVar(arg.type)
         }:Field));
         fields.push({ name: 'eid', pos: ctx.pos, kind: FVar(entityType), access: [APublic] });
@@ -80,20 +80,36 @@ class QueryBuilder {
         mNew.isBound = true;
         final mHasNext = Member.method('hasNext', ({ args: [], expr: macro return i < length }:Function));
         mHasNext.isBound = true;
-        var nextExpr = macro eid = ents[i++];
-        var decl = EObjectDecl(stores.map(s ->
-            ({ field: s.name, expr: ENew(s.wrapperPath, [macro eid, macro $i{s.name}]).at() }:ObjectField)));
-        nextExpr = nextExpr.concat(EReturn(decl.at()).at());
 
-        final mNext = Member.method('next', ({ args: [], expr: nextExpr }:Function));
+        final mNext = Member.method('next', ({
+            args: [],
+            expr: macro {
+                eid = ents[i++];
+                return getWrapper(eid);
+            }
+        }:Function));
         mNext.isBound = true;
+
+        final mGetWrapper = Member.method('getWrapper', ({
+            args: [{ name: 'eid', type: entityType }],
+            expr: EReturn(EObjectDecl(stores.map(s ->
+                ({ field: s.name, expr: ENew(s.wrapperPath, [macro eid, macro $i{s.name}]).at() }:ObjectField))).at()).at()
+        }:Function));
+        mGetWrapper.isBound = true;
+        final mReset = Member.method('reset', { args: [], expr: macro i = 0 });
+        mReset.isBound = true;
 
         var iteratorTd:TypeDefinition = {
             pack: ['bitecs', 'gen'],
             name: ctx.name,
             pos: ctx.pos,
             kind: TDClass(),
-            fields: fields.concat([mNew, mHasNext, mNext])
+            meta: [{
+                name: ':using',
+                pos: Context.currentPos(),
+                params: [macro bitecs.QueryExtensions]
+            }],
+            fields: fields.concat([mNew, mHasNext, mNext, mGetWrapper, mReset])
         }
         // trace(new haxe.macro.Printer().printTypeDefinition(iteratorTd));
         return iteratorTd;

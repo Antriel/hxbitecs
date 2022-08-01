@@ -77,6 +77,21 @@ class TestQueryMacro extends Test {
         Assert.same(group2, res.exitedC);
     }
 
+    public function testSort() {
+        var w = new World<CompB>();
+        for (i in 0...5) {
+            var eid = Bitecs.addEntity(w);
+            w.addComponent(CompB, eid).i = i;
+        }
+        var q = new Query<CompB>(w);
+        var i = 0;
+        var iter = q.on(w).iterator();
+        for (e in iter.sort(a.compB.i - b.compB.i)) Assert.equals(i++, e.compB.i);
+        i = 4;
+        iter.reset();
+        for (e in iter.sort(b.compB.i - a.compB.i)) Assert.equals(i--, e.compB.i);
+    }
+
 }
 
 private class MyWorld extends World<CompA, CompB, CompC> {

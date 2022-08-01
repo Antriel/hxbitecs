@@ -83,7 +83,7 @@ function getDefinition(t:Type):ComponentDefinition {
     };
     final actualType = Context.followWithAbstracts(t);
     final cached = cache.get(actualType);
-    if (cached == null) Context.error("Type does not extend from bitecs.Component.", typePos);
+    if (cached == null) Context.error("Type does not implement `bitecs.IComponent`.", typePos);
     final def = new ComponentDefinition(compName, typePos, cached);
     def.buildWrapper();
     def.exactName = t.toExactString();
