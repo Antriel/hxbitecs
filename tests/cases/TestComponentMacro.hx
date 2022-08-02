@@ -75,6 +75,15 @@ class TestComponentMacro extends Test {
         // c.customSet = 'foo'; // Also a compiler error.
     }
 
+    public function testEntityType() {
+        var w = new World<EntityComponent>();
+        var e = Bitecs.addEntity(w);
+        var c = w.addComponent(EntityComponent, e);
+        Assert.isFalse(c.entity.isValid()); // Stored as Int32 by default.
+        Assert.isTrue(c.eid.isValid()); // Stored as Uint32.
+        Assert.equals(4294967295, c.eid);
+    }
+
 }
 
 private typedef MyWorld = World<SimpleComponent, SimplePrecisionComponent, StringComponent>;
@@ -126,5 +135,12 @@ class ComplexComponent implements IComponent {
     public inline function customSetter(name:String) {
         this.customSet = 'hello $name'; // Need to use `this` so the macro correctly rewrites to private setter.
     }
+
+}
+
+class EntityComponent implements IComponent {
+
+    public var entity:Entity = Entity.NONE;
+    @:bitecs.type(eid) public var eid:Entity = Entity.NONE;
 
 }

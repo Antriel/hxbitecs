@@ -159,7 +159,13 @@ class ComponentDefinition {
                         }
                         BitECS(typeName);
                     case _:
+                        if (typeMeta != null) Context.warning('Mapped type. Metadata ignored.', typeMeta.pos);
                         Mapped;
+                }
+                if (compFieldType.match(BitECS('eid' | 'entity'))
+                    || (compFieldType.match(BitECS('i32')) && src.type.getID() == 'bitecs.Entity')) {
+                    mod.valGet = e -> macro cast $e;
+                    mod.valSet = e -> macro cast $e;
                 }
                 final writable = !field.access.contains(AFinal) && !field.kind.match(FProp(_, 'null', _));
                 addCompField(compFieldType, mod, writable, e, src);
