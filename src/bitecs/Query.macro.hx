@@ -70,7 +70,7 @@ class QueryBuilder {
         }:Field));
         fields.push({ name: 'eid', pos: ctx.pos, kind: FVar(entityType), access: [APublic] });
         fields.push({ name: 'i', pos: ctx.pos, kind: FVar(intType, macro 0) });
-        fields.push({ name: 'length', pos: ctx.pos, kind: FVar(intType) });
+        fields.push({ name: 'length', pos: ctx.pos, kind: FVar(intType), access: [APublic] });
         var newExpr = args.map(a -> {
             var aname = a.name;
             macro this.$aname = $i{aname};
