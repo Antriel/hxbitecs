@@ -84,6 +84,23 @@ class TestComponentMacro extends Test {
         Assert.equals(4294967295, c.eid);
     }
 
+    public function testArrayType() {
+        var w = new World<ArrayComp>();
+        var e = Bitecs.addEntity(w);
+        var c = w.addComponent(ArrayComp, e);
+        Assert.isTrue(c.arrFloat is js.lib.Float64Array);
+        Assert.isTrue(c.arrInt is js.lib.Int16Array);
+        Assert.isTrue(c.arrAbstract is js.lib.Int8Array);
+        Assert.equals(10, c.arrFloat.length);
+        Assert.equals(10 * 8, c.arrFloat.byteLength);
+        Assert.equals(10, c.arrInt.length);
+        Assert.equals(10 * 2, c.arrInt.byteLength);
+        Assert.equals(10, c.arrAbstract.length);
+        Assert.equals(10 * 1, c.arrAbstract.byteLength);
+        for (i in 0...10) c.arrAbstract[i] = -i;
+        Assert.equals(-45, c.arrAbstract.sum());
+    }
+
 }
 
 private typedef MyWorld = World<SimpleComponent, SimplePrecisionComponent, StringComponent>;
@@ -142,5 +159,27 @@ class EntityComponent implements IComponent {
 
     public var entity:Entity = Entity.NONE;
     @:bitecs.type(eid) public var eid:Entity = Entity.NONE;
+
+}
+
+class ArrayComp implements IComponent {
+
+    @:bitecs.length(10) @:bitecs.type(i16) public var arrInt:Array<Int>;
+    @:bitecs.length(10) public var arrFloat:Array<Float>;
+    @:bitecs.length(10) public var arrAbstract:ArrAbstract;
+
+}
+
+@:forward abstract ArrAbstract(js.lib.Int8Array) from js.lib.Int8Array {
+
+    public inline function sum() {
+        var total = 0;
+        for (n in this) total += n;
+        return total;
+    }
+
+    @:op([]) public function arrayRead(n:Int):Int;
+
+    @:op([]) public function arrayWrite(n:Int, v:Int):Int;
 
 }

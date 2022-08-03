@@ -137,6 +137,15 @@ class ComponentDefinition {
         final field = src.field;
         var mod = { valGet: null, valSet: null }; // Conversion of value to/from the stored type.
         var typeMeta = field.meta.find(m -> m.name == ':bitecs.type');
+        var lengthMeta = field.meta.find(m -> m.name == ':bitecs.length');
+        var typeName = if (typeMeta != null) typeMeta.params[0].toString() else null;
+        function getArrLength() {
+            if (lengthMeta == null || lengthMeta.params.length < 1)
+                Context.error('Arrays require `@:bitecs.length(len)` metadata.', field.pos);
+            var len = lengthMeta.params[0].eval();
+            if (!(len is Int)) Context.error('Should eval to an integer.', lengthMeta.params[0].pos);
+            return len;
+        }
         switch field.kind {
             case FProp('default', 'null', _, e) | FVar(_, e):
                 switch TypeTools.follow(src.type, true) {
@@ -146,8 +155,7 @@ class ComponentDefinition {
                 }
                 final compFieldType = switch Context.followWithAbstracts(src.type) {
                     case TAbstract(_.get().name => name, params):
-                        final typeName = if (typeMeta != null) typeMeta.params[0].toString()
-                        else switch name {
+                        if (typeName == null) typeName = switch name {
                             case 'Float': 'f64';
                             case 'Int': 'i32';
                             case 'Bool':
@@ -157,13 +165,30 @@ class ComponentDefinition {
                             case _:
                                 Context.error('Could not process component field type.', field.pos);
                         }
-                        BitECS(typeName);
+                        BitEcs(typeName);
+                    case TInst(_.get().name == 'Array' => true, params):
+                        switch params[0] {
+                            case TAbstract(_.get().name => name, params):
+                                if (typeName == null) typeName = switch name {
+                                    case 'Float': 'f64';
+                                    case 'Int': 'i32';
+                                    case _: Context.error('Only Float and Int types are support for arrays.', field.pos);
+                                }
+                                BitEcsArray(typeName, getArrLength());
+                            case _:
+                                Mapped;
+                        }
+                    case TInst(_.get() => t, params)
+                        if (t.pack.join('.') == 'js.lib' && bitEcsTypeToCT.exists(bt -> bt.names.contains(t.name))):
+                        if (typeMeta != null) Context.warning('Metadata ignored.', typeMeta.pos);
+
+                        BitEcsArray(t.name, getArrLength());
                     case _:
                         if (typeMeta != null) Context.warning('Mapped type. Metadata ignored.', typeMeta.pos);
                         Mapped;
                 }
-                if (compFieldType.match(BitECS('eid' | 'entity'))
-                    || (compFieldType.match(BitECS('i32')) && src.type.getID() == 'bitecs.Entity')) {
+                if (compFieldType.match(BitEcs('eid' | 'entity'))
+                    || (compFieldType.match(BitEcs('i32')) && src.type.getID() == 'bitecs.Entity')) {
                     mod.valGet = e -> macro cast $e;
                     mod.valSet = e -> macro cast $e;
                 }
@@ -180,20 +205,30 @@ class ComponentDefinition {
 
     function addCompField(type:CompFieldType, mod:{valGet:Expr->Expr, valSet:Expr->Expr}, writable:Bool, expr:Expr, src:SourceField) {
         final field = src.field;
-        final ct = src.ct;
+        var ct = src.ct;
         var storeDefField = null;
         final storeField = {
             name: field.name,
             pos: field.pos,
             kind: switch type {
-                case BitECS(typeName):
+                case BitEcs(typeName) | BitEcsArray(typeName, _):
                     var bitEcsType = bitEcsTypeToCT.find(t -> t.names.contains(typeName));
                     if (bitEcsType == null) haxe.macro.Context.error('Failed to determine bitECS type.', field.pos);
                     storeDefField = {
                         field: field.name,
                         expr: bitEcsType.expr.expr.at(field.pos)
                     };
-                    FieldType.FVar(bitEcsType.ct);
+                    var storeCt = bitEcsType.ct;
+                    switch type {
+                        case BitEcsArray(_, size):
+                            storeCt = macro:Array<$storeCt>;
+                            // Make type be a typed array, if the wanted type doesn't unify with it.
+                            if (!ComplexTypeTools.toType(bitEcsType.ct).unifiesWith(src.type))
+                                ct = bitEcsType.ct;
+                            storeDefField.expr = macro [${storeDefField.expr}, untyped $v{size}];
+                        case _:
+                    }
+                    FieldType.FVar(storeCt);
                 case Mapped:
                     FieldType.FVar(macro:js.lib.Map<bitecs.Entity, $ct>);
             },
@@ -228,7 +263,7 @@ class ComponentDefinition {
             var valExpr = macro v;
             if (field.mod.valSet != null) valExpr = field.mod.valSet(valExpr);
             var propExprs = switch field.type {
-                case BitECS(_):
+                case BitEcs(_) | BitEcsArray(_):
                     {
                         getter: macro this.store.$fname[this.ent],
                         setter: macro this.store.$fname[this.ent] = $valExpr,
@@ -245,7 +280,14 @@ class ComponentDefinition {
             wrapperFields.push(getter);
             var setter = Member.setter(fname, 'v', field.storeField.pos, propExprs.setter);
             setter.isBound = true;
-            wrapperFields.push(setter);
+            if (field.type.match(BitEcsArray(_))) { // Only have setters for non-array fields.
+                prop.kind = switch prop.kind {
+                    case FProp(get, set, t, e): FProp(get, 'never', t, e);
+                    case _: throw "unexpected";
+                }
+            } else {
+                wrapperFields.push(setter);
+            }
             if (!field.writable) {
                 privateFields.push(prop.name);
                 final privateName = '_' + prop.name;
@@ -333,7 +375,8 @@ class ComponentDefinition {
 
 private enum CompFieldType {
 
-    BitECS(typeName:String);
+    BitEcs(typeName:String);
+    BitEcsArray(typeName:String, size:Int);
     Mapped;
 
 }
@@ -343,16 +386,16 @@ private var entityType = macro:bitecs.Entity;
 private var voidType = macro:Void;
 
 private var bitEcsTypeToCT = [
-    { names: ['i8', 'int8'], ct: macro:js.lib.Int8Array, expr: macro bitecs.Bitecs.Types.i8 },
-    { names: ['ui8', 'uint8'], ct: macro:js.lib.Uint8Array, expr: macro bitecs.Bitecs.Types.ui8 },
-    { names: ['ui8c'], ct: macro:js.lib.Uint8ClampedArray, expr: macro bitecs.Bitecs.Types.ui8c },
-    { names: ['i16', 'int16'], ct: macro:js.lib.Int16Array, expr: macro bitecs.Bitecs.Types.i16 },
-    { names: ['ui16', 'uint16'], ct: macro:js.lib.Uint16Array, expr: macro bitecs.Bitecs.Types.ui16 },
-    { names: ['i32', 'int32'], ct: macro:js.lib.Int32Array, expr: macro bitecs.Bitecs.Types.i32 },
-    { names: ['ui32', 'uint32'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.ui32 },
-    { names: ['f32', 'float32'], ct: macro:js.lib.Float32Array, expr: macro bitecs.Bitecs.Types.f32 },
-    { names: ['f64', 'float64'], ct: macro:js.lib.Float64Array, expr: macro bitecs.Bitecs.Types.f64 },
-    { names: ['eid', 'entity'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid },
+    { names: ['Int8Array', 'i8', 'int8'], ct: macro:js.lib.Int8Array, expr: macro bitecs.Bitecs.Types.i8 },
+    { names: ['Uint8Array', 'ui8', 'uint8'], ct: macro:js.lib.Uint8Array, expr: macro bitecs.Bitecs.Types.ui8 },
+    { names: ['Uint8ClampedArray', 'ui8c'], ct: macro:js.lib.Uint8ClampedArray, expr: macro bitecs.Bitecs.Types.ui8c },
+    { names: ['Int16Array', 'i16', 'int16'], ct: macro:js.lib.Int16Array, expr: macro bitecs.Bitecs.Types.i16 },
+    { names: ['Uint16Array', 'ui16', 'uint16'], ct: macro:js.lib.Uint16Array, expr: macro bitecs.Bitecs.Types.ui16 },
+    { names: ['Int32Array', 'i32', 'int32'], ct: macro:js.lib.Int32Array, expr: macro bitecs.Bitecs.Types.i32 },
+    { names: ['Uint32Array', 'ui32', 'uint32'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.ui32 },
+    { names: ['Float32Array', 'f32', 'float32'], ct: macro:js.lib.Float32Array, expr: macro bitecs.Bitecs.Types.f32 },
+    { names: ['Float64Array', 'f64', 'float64'], ct: macro:js.lib.Float64Array, expr: macro bitecs.Bitecs.Types.f64 },
+    { names: ['Uint32Array', 'eid', 'entity'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid },
 ];
 
 private function remap(e:Expr, privateFields:Array<String>):Expr {
