@@ -7,7 +7,7 @@ Work in progress.
 - [ ] Consider getting component stores from the query directly, instead of through the world?
 - [x] Add basic world-related bitECS API to `World`.
 - [x] Queries should be defined in Systems, ~~but equal queries shouldn't be defined twice~~. That means we will need to generate some common storage type, probably in the World.
-- [ ] Support for bitECS array types.
+- [x] Support for bitECS array types.
 - [ ] Support for Not queries.
 - [ ] Rethink macros.
     - [x] Components – going from `TypedExpr` to `Expr` is too buggy.
