@@ -2,7 +2,6 @@ package bitecs;
 
 import haxe.macro.Context;
 import haxe.macro.Expr;
-import haxe.macro.TypeTools;
 
 using tink.MacroApi;
 
@@ -25,7 +24,7 @@ function build() {
 
     for (itf in Context.getLocalClass().get().interfaces) if (itf.t.get().name == 'ISystem') {
         worldType = itf.params[0];
-        worldCt = TypeTools.toComplexType(worldType);
+        worldCt = worldType.toComplex();
         break;
     }
     if (newField == null) {
@@ -39,7 +38,6 @@ function build() {
         kind: FVar(worldCt),
         access: [AFinal]
     });
-
     switch newField.kind {
         case FFun(f):
             f.args.unshift({ name: 'world', type: worldCt });

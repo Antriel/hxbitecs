@@ -40,6 +40,21 @@ class TestWorldMacro extends Test {
         Assert.notNull(w.myComponent1);
     }
 
+    public function testWorldOfExtensions() {
+        var fullWorld = new World<MyComponent1, {comp2:MyComponent2, comp3:MyComponent3}>();
+        function oneWorld(w:World.WorldOf<MyComponent1>) {
+            Assert.notNull(w.myComponent1);
+            w.addEntity();
+        }
+        function twoWorld(w:World.WorldOf<MyComponent1, {comp2:MyComponent2}>) {
+            Assert.notNull(w.myComponent1);
+            Assert.notNull(w.comp2);
+            w.addEntity();
+            oneWorld(w);
+        }
+        twoWorld(fullWorld);
+    }
+
 }
 
 class MyComponent1 implements IComponent { }

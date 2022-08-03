@@ -68,7 +68,6 @@ function cacheExprs() {
 @:persistent private var usedNames:Map<String, Int> = [];
 
 function getDefinition(t:Type):ComponentDefinition {
-    // TODO support `eid` type.
     final typePos = t.getPosition().sure();
     final compName = {
         var n = t.getID().split('.').pop();

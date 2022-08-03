@@ -96,8 +96,26 @@ function build() {
 }
 
 function buildWorldOf() {
-    var types = BuildCache.getParams('bitecs.WorldOf').sure();
-    return getWorldStructure(types);
+    var res = BuildCache.getTypeN('bitecs.WorldOf', (ctx:BuildContextN) -> {
+        var structure = getWorldStructure(ctx.types);
+        var name = ctx.name;
+        var iworld = macro:bitecs.World.IWorld<Dynamic>;
+        var f = macro class $name<T:$iworld & $structure> {
+
+            @:from public static inline function fromStructure(s:$structure) return cast s;
+
+        };
+
+        var tt = macro:T;
+        f.kind = TDAbstract(tt, [tt], [tt, iworld, structure]);
+        f.meta.push({ name: ':forward', pos: ctx.pos });
+        f.meta.push({ name: ':transitive', pos: ctx.pos });
+        f.meta.push({ name: ':using', params: [macro bitecs.WorldExtensions], pos: ctx.pos });
+
+        // trace(new haxe.macro.Printer().printTypeDefinition(f));
+        f;
+    });
+    return res.toComplex();
 }
 
 private function getWorldStructure(types:Array<Type>) {
