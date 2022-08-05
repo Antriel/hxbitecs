@@ -74,7 +74,7 @@ class WorldExtensions {
         return processCompExpr(comp, (comp, pos) -> {
             var cname = comp.name;
             macro @:pos(pos) bitecs.Bitecs.hasComponent($world, $world.$cname, $eid);
-        }, MergeAnd).log();
+        }, MergeAnd);
     }
 
     public static macro function getComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
