@@ -81,6 +81,7 @@ function getDefinition(t:Type):ComponentDefinition {
         }
     };
     final actualType = Context.followWithAbstracts(t);
+    actualType.getFields(); // Workaround for https://github.com/HaxeFoundation/haxe/issues/7905, probably...
     final cached = cache.get(actualType);
     if (cached == null) Context.error("Type does not implement `bitecs.IComponent`.", typePos);
     final def = new ComponentDefinition(compName, typePos, cached);
