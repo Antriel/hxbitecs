@@ -24,11 +24,13 @@ class TestWorldMacro extends Test {
         Assert.isTrue(w.hasComponent(MyComponent1, eid));
         Assert.isTrue(w.hasComponent(MyComponent2, eid));
         Assert.same({ myComponent1: true, comp2: true }, w.hasComponent([MyComponent1, MyComponent2], eid));
+        Assert.isTrue(w.hasAllComponents([MyComponent1, MyComponent2], eid));
         w.removeComponent(MyComponent1, eid);
         Assert.isFalse(w.hasComponent(MyComponent1, eid));
         Assert.isTrue(w.hasComponent(MyComponent2, eid));
         Assert.same({ myComponent1: false, comp2: true }, w.hasComponent([MyComponent1, MyComponent2], eid));
         Assert.same([w.comp2], w.getEntityComponents(eid));
+        Assert.isFalse(w.hasAllComponents([MyComponent1, MyComponent2], eid));
         Assert.isTrue(w.entityExists(eid));
         w.removeEntity(eid);
         Assert.isFalse(w.entityExists(eid));

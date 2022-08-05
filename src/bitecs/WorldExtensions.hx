@@ -70,6 +70,13 @@ class WorldExtensions {
         });
     }
 
+    public static macro function hasAllComponents(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
+        return processCompExpr(comp, (comp, pos) -> {
+            var cname = comp.name;
+            macro @:pos(pos) bitecs.Bitecs.hasComponent($world, $world.$cname, $eid);
+        }, MergeAnd).log();
+    }
+
     public static macro function getComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
         return processCompExpr(comp, (comp, pos) -> {
             var cname = comp.name;
@@ -84,11 +91,11 @@ class WorldExtensions {
             var args = [world, macro @:pos(pos) $world.$cname, eid];
             if (!reset.expr.match(EConst(CIdent('null')))) args.push(reset);
             macro @:pos(pos) bitecs.Bitecs.removeComponent($a{args});
-        }, false);
+        }, NoReturn);
     }
 
     #if macro
-    private static function processCompExpr(comp:Expr, action:(comp:ComponentData, pos:Position) -> Expr, ret = true):Expr {
+    private static function processCompExpr(comp:Expr, action:(comp:ComponentData, pos:Position) -> Expr, mode = ExprMode.Normal):Expr {
         var res = [];
         var names = [];
         function add(cExpr:Expr) {
@@ -107,11 +114,21 @@ class WorldExtensions {
             case EArrayDecl(values):
                 for (v in values) add(v);
                 // Result value is anon object of all wrappers.
-                if (ret) res.push(EObjectDecl(names.map(n -> ({ field: n, expr: macro $i{n} }:ObjectField))).at());
+                switch mode {
+                    case Normal:
+                        res.push(EObjectDecl(names.map(n -> ({ field: n, expr: macro $i{n} }:ObjectField))).at());
+                    case MergeAnd:
+                        res = [Lambda.fold(res.slice(1), (expr, res:Expr) -> res.binOp(expr, OpBoolAnd), res[0])];
+                    case NoReturn:
+                }
             case _:
                 add(comp);
-                // Result value is just the single wrapper;
-                if (ret) res.push(macro $i{names[0]});
+                switch mode {
+                    case Normal: // Result value is just the single wrapper.
+                        res.push(macro $i{names[0]});
+                    case MergeAnd:
+                    case NoReturn:
+                }
         }
         return res.toBlock();
     }
@@ -121,4 +138,14 @@ class WorldExtensions {
 
 #if !macro
 typedef AnyWorld = World.IWorld<Dynamic>
+#end
+
+#if macro
+enum ExprMode {
+
+    Normal;
+    NoReturn;
+    MergeAnd;
+
+}
 #end
