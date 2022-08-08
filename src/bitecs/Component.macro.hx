@@ -51,11 +51,11 @@ function cacheExprs() {
         }),
         imports: [
             { // Import all from the original package, as we generate the type in a different one.
-                path: classType.pack.map(p -> {name: p, pos: pos }),
+                path: { var p = classType.module.split('.'); p.pop(); p.map(p -> {name: p, pos: pos }); },
                 mode: IAll
             },
             { // Import original module too, in case there are some inner types.
-                path: classType.pack.map(p -> {name: p, pos: pos }).concat([{ name: classType.name, pos: pos }]),
+                path: classType.module.split('.').map(p -> {name: p, pos: pos }),
                 mode: INormal
             }
         ].concat(Context.getLocalImports()),
