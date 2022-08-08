@@ -28,10 +28,11 @@ typedef SourceField = {
 @:persistent var cache:TypeMap<ComponentSource> = new TypeMap();
 
 function cacheExprs() {
+    final pos = Context.currentPos();
     var fields = Context.getBuildFields();
     var t = Context.getLocalType();
-    var pack = switch t.reduce(true) {
-        case TInst(t, params): t.get().pack.join('.');
+    var classType = switch t.reduce(true) {
+        case TInst(t, params): t.get();
         case _: Context.error("Should be a class.", Context.currentPos());
     }
     cache.set(t, {
@@ -48,10 +49,16 @@ function cacheExprs() {
                 ct: type == null ? null : type.toComplex()
             }
         }),
-        imports: [{ // Import all from the original package, as we generate the type in a different one.
-            path: [{ name: pack, pos: Context.currentPos() }],
-            mode: IAll
-        }].concat(Context.getLocalImports()),
+        imports: [
+            { // Import all from the original package, as we generate the type in a different one.
+                path: classType.pack.map(p -> {name: p, pos: pos }),
+                mode: IAll
+            },
+            { // Import original module too, in case there are some inner types.
+                path: classType.pack.map(p -> {name: p, pos: pos }).concat([{ name: classType.name, pos: pos }]),
+                mode: INormal
+            }
+        ].concat(Context.getLocalImports()),
         usings: Context.getLocalUsing().map(ref -> {
             var classType = ref.get();
             {
