@@ -119,6 +119,7 @@ class QueryBuilder {
         var selfCt = 'bitecs.gen.${ctx.name}Wrapper'.asComplexType();
         var selfTp = 'bitecs.gen.${ctx.name}Wrapper'.asTypePath();
         var helperTp = 'bitecs.gen.${ctx.name}Helper'.asTypePath();
+        var firstHelperTp = 'bitecs.gen.${ctx.name}FirstHelper'.asTypePath();
 
         var storeExprs = stores.map(s -> (macro w).field(s.name));
         var mNew = Member.method('new', ({
@@ -155,6 +156,12 @@ class QueryBuilder {
         }:Function));
         mOn.isBound = true;
 
+        var mFirst = Member.method('first', ({
+            args: [{ name: 'w', type: worldType }],
+            expr: macro return new $firstHelperTp(w, (this:$selfCt))
+        }:Function));
+        mFirst.isBound = true;
+
         var mEntered = Member.method('enteredQuery', ({
             args: [],
             expr: macro return bitecs.Bitecs.enterQuery(this)
@@ -177,14 +184,17 @@ class QueryBuilder {
             name: ctx.name + 'Wrapper',
             pos: ctx.pos,
             kind: TDAbstract(queryType, [queryType]),
-            fields: [mNew, mInit, mIterator, mKeyValIter, mOn, mEntered, mExited, mGetLength],
+            fields: [mNew, mInit, mIterator, mKeyValIter, mOn, mFirst, mEntered, mExited, mGetLength],
             meta: [{ name: ':bitecs.comps', pos: ctx.pos, params: stores.map(s -> s.compExactName.resolve()) }]
         };
         // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperTd));
 
         var mhNew = Member.method('new', ({
             args: [{ name: 'w' }, { name: 'q' }],
-            expr: macro this = { w: w, q: q }
+            expr: macro {
+                this = { w: w, q: q };
+                null;
+            }
         }:Function));
         mhNew.isBound = true;
         var mhIter = Member.method('iterator', ({ args: [], expr: macro return this.q.iterator(this.w) }:Function));
@@ -201,8 +211,37 @@ class QueryBuilder {
         }
         // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperHelperTd));
 
+        var mfhIter = Member.method('iterator', ({
+            args: [],
+            expr: macro return {
+                final iter = this.q.iterator(this.w);
+                if (iter.length > 0) iter.length = 1;
+                iter;
+            }
+        }:Function));
+        mfhIter.isBound = true;
+        var mfhKeyIter = Member.method('keyValueIterator', ({
+            args: [],
+            expr: macro return {
+                final iter = this.q.keyValueIterator(this.w);
+                if (iter.length > 0) @:privateAccess iter.iter.length = 1;
+                iter;
+            }
+        }:Function));
+        mfhKeyIter.isBound = true;
+
+        var queryWrapperFirstHelperTd:TypeDefinition = {
+            pack: ['bitecs', 'gen'],
+            name: ctx.name + 'FirstHelper',
+            pos: ctx.pos,
+            kind: TDAbstract(macro:{w:$worldType, q:$selfCt}),
+            fields: [mhNew, mfhIter, mfhKeyIter]
+        }
+        // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperFirstHelperTd));
+
         Context.defineType(queryWrapperTd);
         Context.defineType(queryWrapperHelperTd);
+        Context.defineType(queryWrapperFirstHelperTd);
     }
 
 }

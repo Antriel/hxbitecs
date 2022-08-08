@@ -92,6 +92,22 @@ class TestQueryMacro extends Test {
         for (e in iter.sort(b.compB.i - a.compB.i)) Assert.equals(i--, e.compB.i);
     }
 
+    public function testFirst() {
+        var w = new World<CompA, CompB>();
+        for (i in 0...5) {
+            var eid = Bitecs.addEntity(w);
+            if (i == 3) w.addComponent(CompB, eid);
+            else w.addComponent(CompA, eid);
+        }
+        var qA = new Query<CompA>(w);
+        var qB = new Query<CompB>(w);
+        var qAB = new Query<CompA, CompB>(w);
+        var n = 0;
+        for (e in qA.first(w)) Assert.equals(0, n++);
+        for (eid => e in qB.first(w)) Assert.isFalse(w.hasComponent(CompA, eid));
+        for (e in qAB.first(w)) Assert.fail();
+    }
+
 }
 
 private class MyWorld extends World<CompA, CompB, CompC> {
