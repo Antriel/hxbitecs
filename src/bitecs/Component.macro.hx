@@ -237,6 +237,10 @@ class ComponentDefinition {
 
         var initExpr = null;
         if (expr != null) {
+            if (!type.match(Mapped)) switch expr { // Check for null assignment.
+                case macro null: Context.error('Null cannot be stored in bitECS store.', expr.pos);
+                case _:
+            }
             final fname = field.name;
             initExpr = macro this.$fname = $expr;
         }
