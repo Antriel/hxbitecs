@@ -57,6 +57,18 @@ class TestWorldMacro extends Test {
         twoWorld(fullWorld);
     }
 
+    public function testConstructorArgs() {
+        var w = new World<MyComponent4>();
+        var e = w.addEntity();
+        var c = w.addComponent(MyComponent4, e, { a: 10 });
+        Assert.equals(10, w.myComponent4.a[e]);
+        Assert.isTrue(c.b);
+        e = w.addEntity();
+        c = w.addComponent(MyComponent4, e, { a: 1, b: false });
+        Assert.equals(1, c.a);
+        Assert.isFalse(c.b);
+    }
+
 }
 
 class MyComponent1 implements IComponent { }
@@ -64,3 +76,15 @@ class MyComponent1 implements IComponent { }
 class MyComponent2 implements IComponent { }
 
 typedef MyComponent3 = MyComponent2;
+
+class MyComponent4 implements IComponent {
+
+    public var a:Int;
+    public var b:Bool;
+
+    public function new(a:Int, b:Bool = true) {
+        this.a = a;
+        this.b = b;
+    }
+
+}

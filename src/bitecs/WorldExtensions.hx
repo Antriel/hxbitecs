@@ -45,11 +45,11 @@ class WorldExtensions {
             var args = [];
             for (arg in comp.def.initExtraArgs) {
                 var i = Lambda.findIndex(initFields, f -> f.field == arg.name);
-                if (i < 0) Context.error('Missing initialization value for "${arg.name}".', pos);
-                else {
-                    var f = initFields.splice(i, 1)[0];
-                    args.push(f.expr);
-                }
+                var expr = if (i < 0) {
+                    if (arg.value != null) arg.value;
+                    else Context.error('Missing initialization value for "${arg.name}".', pos);
+                } else initFields.splice(i, 1)[0].expr;
+                args.push(expr);
             }
             macro @:pos(pos) @:mergeBlock {
                 bitecs.Bitecs.addComponent($world, $world.$cname, $eid);
