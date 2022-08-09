@@ -11,10 +11,12 @@ function build() {
         case TInst(t, params):
             var compTypes = Lambda.flatten([for (param in params) World.parseComponent(param)]).map(c -> c.type);
             BuildCache.getTypeN('bitecs.gen.EntityOf', compTypes, (ctx:BuildContextN) -> {
-                final fields = ctx.types.map(t -> World.components.get(t)).map(c -> ({
+                final comps = ctx.types.map(t -> World.components.get(t));
+                final fields = comps.map(c -> ({
                     name: c.name,
                     pos: ctx.pos,
                     kind: FieldType.FVar(ComplexType.TPath(c.def.wrapperPath)),
+                    meta: [{ name: ':bitecs.comp', pos: ctx.pos, params: [c.def.exactName.resolve()] }]
                 }:Field));
                 var td:TypeDefinition = {
                     pack: ['bitecs', 'gen'],

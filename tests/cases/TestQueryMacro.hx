@@ -108,6 +108,14 @@ class TestQueryMacro extends Test {
         for (e in qAB.first(w)) Assert.fail();
     }
 
+    public function testQueryEntityOf() {
+        var w = new World<CompA, CompB>();
+        var q = new Query<EntityAB>(w);
+        var eid = Bitecs.addEntity(w);
+        w.addComponent([CompA, CompB], eid);
+        Assert.same([eid], q.entities(w));
+    }
+
 }
 
 private class MyWorld extends World<CompA, CompB, CompC> {
@@ -168,3 +176,5 @@ private class CompC implements IComponent {
     public var s:String;
 
 }
+
+typedef EntityAB = EntityOf<CompA, CompB>;

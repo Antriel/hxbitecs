@@ -21,19 +21,12 @@ function parseComponent(type:Type) {
         case TAbstract(_.get() => t, params):
             if (t.meta.has(':bitecs.comps')) { // Parse from generated type.
                 var params = t.meta.extract(':bitecs.comps')[0].params;
-                var result = [];
-                for (p in params) {
-                    try {
-                        var name = p.toString();
-                        var t = Context.getType(name);
-                        if (!components.exists(t)) Context.error('Component "$name" not registered yet?', Context.currentPos());
-                        result.push(components.get(t));
-                    } catch (e) {
-                        Context.error('Failed to resolve components.', Context.currentPos());
-                    }
-                }
-                return result;
+                return parseFromMetaExpr(params);
             }
+        case TAnonymous(t):
+            var comps = t.get().fields.map(f -> f.meta.extract(':bitecs.comp')[0]);
+            if (!Lambda.exists(comps, c -> c == null))
+                return parseFromMetaExpr(comps.map(c -> c.params[0]));
         case _:
     }
     return switch type {
@@ -41,6 +34,21 @@ function parseComponent(type:Type) {
             [for (f in anonFields) registerComponent(f.type, f.name)];
         case _: [registerComponent(type)];
     }
+}
+
+private function parseFromMetaExpr(exprs:Array<Expr>) {
+    var result = [];
+    for (e in exprs) {
+        try {
+            var name = e.toString();
+            var t = Context.getType(name);
+            if (!components.exists(t)) Context.error('Component "$name" not registered yet?', Context.currentPos());
+            result.push(components.get(t));
+        } catch (e) {
+            Context.error('Failed to resolve components.', Context.currentPos());
+        }
+    }
+    return result;
 }
 
 private function registerComponent(comp:Type, ?name:String) {
