@@ -179,12 +179,18 @@ class QueryBuilder {
         }:Function));
         mGetLength.isBound = true;
 
+        var mEntities = Member.method('entities', ({
+            args: [{ name: 'w', type: worldType }],
+            expr: macro return this(w)
+        }:Function));
+        mEntities.isBound = true;
+
         var queryWrapperTd:TypeDefinition = {
             pack: ['bitecs', 'gen'],
             name: ctx.name + 'Wrapper',
             pos: ctx.pos,
             kind: TDAbstract(queryType, [queryType]),
-            fields: [mNew, mInit, mIterator, mKeyValIter, mOn, mFirst, mEntered, mExited, mGetLength],
+            fields: [mNew, mInit, mIterator, mKeyValIter, mOn, mFirst, mEntered, mExited, mGetLength, mEntities],
             meta: [{ name: ':bitecs.comps', pos: ctx.pos, params: stores.map(s -> s.compExactName.resolve()) }]
         };
         // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperTd));
