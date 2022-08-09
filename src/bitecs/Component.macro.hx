@@ -370,7 +370,8 @@ class ComponentDefinition {
                 {
                     name: 'new',
                     kind: FFun({
-                        args: [{ name: 'ent' }, { name: 'store' }],
+                        params: [{ name: 'E', constraints: [entityType] }],
+                        args: [{ name: 'ent', type: macro:E }, { name: 'store', type: storeType }],
                         expr: macro this = { ent: ent, store: store }
                     }),
                     access: [APublic, AInline],

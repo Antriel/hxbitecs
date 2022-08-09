@@ -196,7 +196,8 @@ class QueryBuilder {
         // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperTd));
 
         var mhNew = Member.method('new', ({
-            args: [{ name: 'w' }, { name: 'q' }],
+            args: [{ name: 'w', type: macro:T }, { name: 'q' }],
+            params: [{ name: 'T', constraints: [worldType] }],
             expr: macro {
                 this = { w: w, q: q };
                 null;
