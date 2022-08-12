@@ -83,8 +83,13 @@ function build() {
     final fields = Context.getBuildFields();
     var res = BuildCache.getTypeN('bitecs.World', (ctx:BuildContextN) -> {
         // Create stores for the components in this class.
+        var initCompsExpr = [];
         for (compType in ctx.types) {
-            for (comp in parseComponent(compType)) addComponentField(fields, comp);
+            for (comp in parseComponent(compType)) {
+                addComponentField(fields, comp);
+                var name = comp.name;
+                initCompsExpr.push(macro this.$name = ${comp.def.initExpr});
+            }
         }
 
         var structure = getWorldStructure(ctx.types);
@@ -96,6 +101,10 @@ function build() {
             pos: Context.currentPos(),
             params: [macro bitecs.WorldExtensions]
         });
+        switch Lambda.find(fields, f -> f.name == 'new').kind {
+            case FFun(f): f.expr = f.expr.concat(initCompsExpr.toBlock());
+            case _: throw "unexpected";
+        }
         f.fields = fields;
         f;
 
@@ -142,7 +151,7 @@ private function getWorldStructure(types:Array<Type>) {
 private function addComponentField(fields:Array<Field>, c):Void {
     fields.push({
         name: c.name,
-        kind: FVar(c.def.storeType, c.def.initExpr),
+        kind: FVar(c.def.storeType),
         pos: Context.currentPos(),
         access: [APublic, AFinal]
     });

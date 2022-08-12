@@ -4,11 +4,11 @@ import bitecs.Query.QueryType;
 
 @:jsRequire("bitecs") @valueModuleOnly extern class Bitecs {
 
-    static function setDefaultSize(size:Int):Void;
-    @:overload(function(?size:Int):Any { })
-    static function createWorld<W>(?obj:W, ?size:Int):W;
+    static function createUniverse(?capacity:Int):Universe;
+    static function deleteWorld<W>(universe:Universe, world:W):Void;
+    static function resetUniverse(universe:Universe, ?maxEntities:Int):Void;
+    static function createWorld<W>(?universe:Universe, ?obj:W):W;
     static function resetWorld<W>(world:W):W;
-    static function deleteWorld<W>(world:W):Void;
     static function addEntity<W>(world:W):Entity;
     static function removeEntity<W>(world:W, eid:Entity):Void;
     static function entityExists<W>(world:W, eid:Entity):Bool;
@@ -16,7 +16,7 @@ import bitecs.Query.QueryType;
     static function getAllEntities<W>(world:W):Array<Entity>;
     static function registerComponent<W>(world:W, component:Dynamic):Void;
     static function registerComponents<W>(world:W, components:Array<Dynamic>):Void;
-    static function defineComponent(schema:Dynamic, ?size:Int):Dynamic;
+    static function defineComponent(universe:Universe, schema:Dynamic):Dynamic;
     static function addComponent<W>(world:W, component:Dynamic, eid:Entity, ?reset:Bool):Void;
     static function removeComponent<W>(world:W, component:Dynamic, eid:Entity, ?reset:Bool):Void;
     static function hasComponent<W>(world:W, component:Dynamic, eid:Entity):Bool;
@@ -45,5 +45,15 @@ import bitecs.Query.QueryType;
         var eid:String;
     };
     static final parentArray:js.lib.Symbol;
+
+}
+
+typedef Universe = {
+
+    var worlds:Array<Any>;
+    var removedEntities:Array<Entity>;
+    var components:Array<Any>;
+    var entityCursor:Int;
+    var capacity:Int;
 
 }

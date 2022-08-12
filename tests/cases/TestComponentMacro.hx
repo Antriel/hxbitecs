@@ -5,7 +5,7 @@ import data.FooBar;
 class TestComponentMacro extends Test {
 
     public function testSimple() {
-        var w = new MyWorld();
+        var w = new MyWorld(100);
         Assert.isTrue(Reflect.hasField(w.simpleComponent, 'float'));
         Assert.isTrue(Reflect.hasField(w.simpleComponent, 'int'));
         Assert.isTrue(Reflect.hasField(w.simpleComponent, 'bool'));
@@ -25,7 +25,7 @@ class TestComponentMacro extends Test {
     }
 
     public function testInitSimpleValues() {
-        var w = new MyWorld();
+        var w = new MyWorld(10);
         var e1 = Bitecs.addEntity(w); // Need to make and remove multiple, so that bitECS reuses an Entity.
         var e2 = Bitecs.addEntity(w);
         Bitecs.addComponent(w, w.simpleComponent, e1);
@@ -43,7 +43,7 @@ class TestComponentMacro extends Test {
     }
 
     public function testMapWrapper() {
-        var w = new MyWorld();
+        var w = new MyWorld(100);
         var e = Bitecs.addEntity(w);
         var stringComp = w.addComponent(StringComponent, e);
         Assert.equals('hello', stringComp.string);
@@ -52,7 +52,7 @@ class TestComponentMacro extends Test {
     }
 
     public function testFunctions() {
-        var w = new MyWorld();
+        var w = new MyWorld(100);
         var e = Bitecs.addEntity(w);
         var comps = w.addComponent([SimpleComponent, StringComponent], e);
         comps.simpleComponent.setTo(1);
@@ -64,7 +64,7 @@ class TestComponentMacro extends Test {
     }
 
     public function testComplex() {
-        var w = new World<ComplexComponent>();
+        var w = new World<ComplexComponent>(100);
         var e = Bitecs.addEntity(w);
         var c = w.addComponent(ComplexComponent, e, { initVal: 10 }); // Should ask for ctr init vars.
         Assert.equals(10, c.initVal);
@@ -76,7 +76,7 @@ class TestComponentMacro extends Test {
     }
 
     public function testEntityType() {
-        var w = new World<EntityComponent>();
+        var w = new World<EntityComponent>(100);
         var e = Bitecs.addEntity(w);
         var c = w.addComponent(EntityComponent, e);
         Assert.isFalse(c.entity.isValid()); // Stored as Int32 by default.
@@ -85,7 +85,7 @@ class TestComponentMacro extends Test {
     }
 
     public function testArrayType() {
-        var w = new World<ArrayComp>();
+        var w = new World<ArrayComp>(100);
         var e = Bitecs.addEntity(w);
         var c = w.addComponent(ArrayComp, e);
         Assert.isTrue(c.arrFloat is js.lib.Float64Array);

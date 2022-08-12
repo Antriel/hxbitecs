@@ -319,7 +319,7 @@ class ComponentDefinition {
             }
         }
         var defObjFields = compFields.map(f -> f.storeDefField).filter(f -> f != null);
-        initExpr = macro @:pos(typePos) Bitecs.defineComponent(${EObjectDecl(defObjFields).at(typePos)});
+        initExpr = macro @:pos(typePos) Bitecs.defineComponent(universe, ${EObjectDecl(defObjFields).at(typePos)});
         if (compFields.exists(f -> f.type.match(Mapped))) {
             initExpr = macro final c = $initExpr;
             for (f in compFields) if (f.type.match(Mapped)) {

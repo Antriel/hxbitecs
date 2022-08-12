@@ -23,11 +23,14 @@ final Vec2Def = { x: Bitecs.Types.f64, y: Bitecs.Types.f64 };
 
 private class World {
 
-    public final velocity:{x:Array<Float>, y:Array<Float>} = Bitecs.defineComponent(Vec2Def);
-    public final position:{x:Array<Float>, y:Array<Float>} = Bitecs.defineComponent(Vec2Def);
+    public final velocity:{x:Array<Float>, y:Array<Float>};
+    public final position:{x:Array<Float>, y:Array<Float>};
 
     public function new() {
-        Bitecs.createWorld(this, 100);
+        var universe = Bitecs.createUniverse();
+        Bitecs.createWorld(universe, this);
+        position = Bitecs.defineComponent(universe, Vec2Def);
+        velocity = Bitecs.defineComponent(universe, Vec2Def);
     }
 
 }

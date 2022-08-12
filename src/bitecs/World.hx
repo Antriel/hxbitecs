@@ -2,8 +2,11 @@ package bitecs;
 
 @:genericBuild(bitecs.World.build()) class World<Rest> {
 
-    public function new(?size:Int) {
-        Bitecs.createWorld(this, size);
+    var universe:bitecs.Bitecs.Universe;
+
+    public function new(?capacity:Int) {
+        universe = Bitecs.createUniverse(capacity);
+        Bitecs.createWorld(universe, this);
     }
 
 }
