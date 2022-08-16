@@ -185,8 +185,7 @@ class ComponentDefinition {
                             case _:
                                 Mapped;
                         }
-                    case TInst(_.get() => t, params)
-                        if (t.pack.join('.') == 'js.lib' && bitEcsTypeToCT.exists(bt -> bt.names.contains(t.name))):
+                    case TInst(_.get() => t, params) if (t.pack.join('.') == 'js.lib' && getBitEcsData(t.name) != null):
                         if (typeMeta != null) Context.warning('Metadata ignored.', typeMeta.pos);
 
                         BitEcsArray(t.name, getArrLength());
@@ -219,7 +218,7 @@ class ComponentDefinition {
             pos: field.pos,
             kind: switch type {
                 case BitEcs(typeName) | BitEcsArray(typeName, _):
-                    var bitEcsType = bitEcsTypeToCT.find(t -> t.names.contains(typeName));
+                    var bitEcsType = getBitEcsData(typeName);
                     if (bitEcsType == null) haxe.macro.Context.error('Failed to determine bitECS type.', field.pos);
                     storeDefField = {
                         field: field.name,
@@ -383,6 +382,23 @@ class ComponentDefinition {
         // trace(new haxe.macro.Printer().printTypeDefinition(wrapper));
     }
 
+    public function getReport() {
+        var bytes:Int = 0;
+        var mapped:Int = 0;
+        for (f in compFields) {
+            switch f.type {
+                case BitEcs(typeName): bytes += getBitEcsData(typeName).byteSize;
+                case BitEcsArray(typeName, size): bytes += getBitEcsData(typeName).byteSize * size;
+                case Mapped: mapped++;
+            }
+        }
+        return {
+            name: this.name,
+            bytes: bytes,
+            mapped: mapped
+        };
+    }
+
 }
 
 private enum CompFieldType {
@@ -396,19 +412,24 @@ private enum CompFieldType {
 private var worldType = macro:bitecs.World;
 private var entityType = macro:bitecs.Entity;
 private var voidType = macro:Void;
+typedef BitEcsTypeData = {names:Array<String>, ct:ComplexType, expr:Expr, byteSize:Int};
 
-private var bitEcsTypeToCT = [
-    { names: ['Int8Array', 'i8', 'int8'], ct: macro:js.lib.Int8Array, expr: macro bitecs.Bitecs.Types.i8 },
-    { names: ['Uint8Array', 'ui8', 'uint8'], ct: macro:js.lib.Uint8Array, expr: macro bitecs.Bitecs.Types.ui8 },
-    { names: ['Uint8ClampedArray', 'ui8c'], ct: macro:js.lib.Uint8ClampedArray, expr: macro bitecs.Bitecs.Types.ui8c },
-    { names: ['Int16Array', 'i16', 'int16'], ct: macro:js.lib.Int16Array, expr: macro bitecs.Bitecs.Types.i16 },
-    { names: ['Uint16Array', 'ui16', 'uint16'], ct: macro:js.lib.Uint16Array, expr: macro bitecs.Bitecs.Types.ui16 },
-    { names: ['Int32Array', 'i32', 'int32'], ct: macro:js.lib.Int32Array, expr: macro bitecs.Bitecs.Types.i32 },
-    { names: ['Uint32Array', 'ui32', 'uint32'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.ui32 },
-    { names: ['Float32Array', 'f32', 'float32'], ct: macro:js.lib.Float32Array, expr: macro bitecs.Bitecs.Types.f32 },
-    { names: ['Float64Array', 'f64', 'float64'], ct: macro:js.lib.Float64Array, expr: macro bitecs.Bitecs.Types.f64 },
-    { names: ['Uint32Array', 'eid', 'entity'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid },
+private var bitEcsTypeData:Array<BitEcsTypeData> = [
+    { names: ['Int8Array', 'i8', 'int8'], ct: macro:js.lib.Int8Array, expr: macro bitecs.Bitecs.Types.i8, byteSize: 1 },
+    { names: ['Uint8Array', 'ui8', 'uint8'], ct: macro:js.lib.Uint8Array, expr: macro bitecs.Bitecs.Types.ui8, byteSize: 1 },
+    { names: ['Uint8ClampedArray', 'ui8c'], ct: macro:js.lib.Uint8ClampedArray, expr: macro bitecs.Bitecs.Types.ui8c, byteSize: 1 },
+    { names: ['Int16Array', 'i16', 'int16'], ct: macro:js.lib.Int16Array, expr: macro bitecs.Bitecs.Types.i16, byteSize: 2 },
+    { names: ['Uint16Array', 'ui16', 'uint16'], ct: macro:js.lib.Uint16Array, expr: macro bitecs.Bitecs.Types.ui16, byteSize: 2 },
+    { names: ['Int32Array', 'i32', 'int32'], ct: macro:js.lib.Int32Array, expr: macro bitecs.Bitecs.Types.i32, byteSize: 4 },
+    { names: ['Uint32Array', 'ui32', 'uint32'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.ui32, byteSize: 4 },
+    { names: ['Float32Array', 'f32', 'float32'], ct: macro:js.lib.Float32Array, expr: macro bitecs.Bitecs.Types.f32, byteSize: 4 },
+    { names: ['Float64Array', 'f64', 'float64'], ct: macro:js.lib.Float64Array, expr: macro bitecs.Bitecs.Types.f64, byteSize: 8 },
+    { names: ['Uint32Array', 'eid', 'entity'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid, byteSize: 4 },
 ];
+
+private function getBitEcsData(name:String):Null<BitEcsTypeData> {
+    return bitEcsTypeData.find(t -> t.names.contains(name));
+}
 
 private function remap(e:Expr, privateFields:Array<String>):Expr {
     function replace(e:Expr) {

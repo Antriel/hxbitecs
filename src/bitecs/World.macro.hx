@@ -84,16 +84,16 @@ function build() {
     var res = BuildCache.getTypeN('bitecs.World', (ctx:BuildContextN) -> {
         // Create stores for the components in this class.
         var initCompsExpr = [];
-        for (compType in ctx.types) {
-            for (comp in parseComponent(compType)) {
-                addComponentField(fields, comp);
-                var name = comp.name;
-                initCompsExpr.push(macro this.$name = ${comp.def.initExpr});
-            }
+        var comps = [for (compType in ctx.types) for (comp in parseComponent(compType)) comp];
+        for (comp in comps) {
+            addComponentField(fields, comp);
+            var name = comp.name;
+            initCompsExpr.push(macro this.$name = ${comp.def.initExpr});
         }
 
         var structure = getWorldStructure(ctx.types);
         var name = ctx.name;
+        report(Context.getPosInfos(ctx.pos).file, comps);
         var f = macro class $name implements bitecs.World.IWorld<$structure> { }
 
         f.meta.push({
@@ -110,6 +110,25 @@ function build() {
 
     });
     return TypeTools.toComplexType(res);
+}
+
+function report(name:String, comps:Array<ComponentData>) {
+    var type = Context.definedValue('bitecs.report');
+    if (type == null) return;
+    Sys.println('Component report for $name:');
+    var reports = [for (c in comps) c.def.getReport()];
+    var totalBytes = Lambda.fold(reports, (r, total) -> r.bytes + total, 0);
+    var totalMapped = Lambda.fold(reports, (r, total) -> r.mapped + total, 0);
+    Sys.println('  Mapped fields count: $totalMapped');
+    Sys.println('  Total bytes for all TypedArray fields: $totalBytes');
+    switch type {
+        case '1' | 'simple': // Nothing else.
+        case 'full':
+            for (r in reports) {
+                Sys.println('    ${r.name} - Mapped ${r.mapped} / Bytes ${r.bytes}');
+            }
+        case other: Context.warning('Unknown `bitecs.report` config of "$other".', Context.currentPos());
+    }
 }
 
 function buildWorldOf() {

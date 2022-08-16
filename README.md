@@ -13,3 +13,4 @@ Work in progress.
     - [x] Components – going from `TypedExpr` to `Expr` is too buggy.
     - [ ] More explicit approach for World and Systems, less typing?
     - [ ] Include the world in the queries, so we can just directly iterate them?
+- [ ] Separate the concept of Universe vs World. Allow the user to create multiple Worlds within a Universe.
