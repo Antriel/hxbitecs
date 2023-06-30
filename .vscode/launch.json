@@ -11,7 +11,7 @@
         },
         {
             "name": "Run Tests",
-            "preLaunchTask": "haxe: test.hxml",
+            "preLaunchTask": "Build Tests",
             "program": "${workspaceFolder}/bin/tests.js",
             "request": "launch",
             "skipFiles": [

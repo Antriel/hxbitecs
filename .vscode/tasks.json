@@ -2,9 +2,10 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "haxe: test.hxml",
+			"label": "Build Tests",
 			"type": "hxml",
 			"file": "test.hxml",
+			"problemMatcher": [],
 			"group": {
 				"kind": "build",
 				"isDefault": true
@@ -16,6 +17,18 @@
 				"showReuseMessage": true,
 				"clear": false
 			}
+		},
+		{
+			"label": "Run Tests",
+			"dependsOn": [
+				"Build Tests"
+			],
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"bin/tests.js"
+			],
+			"problemMatcher": []
 		}
 	]
 }
