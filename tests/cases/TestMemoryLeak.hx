@@ -2,7 +2,7 @@ package cases;
 
 class TestMemoryLeak extends Test {
 
-    @Ignored
+    @:ignore
     public function testLeak() {
         inline function getMem():Int return js.Syntax.code('process').memoryUsage().rss;
         var memStart = getMem();

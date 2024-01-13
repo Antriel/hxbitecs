@@ -38,7 +38,10 @@ class TestWorldMacro extends Test {
 
     public function testWorldOf() {
         // For generic systems wanting a world that contains some components, but without needing to specify the full type.
-        var w:World.WorldOf<MyComponent1> = new World<MyComponent1, {comp3:MyComponent3}>();
+        var w:World.WorldOf<MyComponent1> = null;
+        w = new World<MyComponent1, {comp3:MyComponent3}>();
+        Assert.notNull(w.myComponent1);
+        w = new World<MyComponent1, {comp2:MyComponent2}>();
         Assert.notNull(w.myComponent1);
     }
 

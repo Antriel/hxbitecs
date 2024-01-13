@@ -16,7 +16,7 @@ class TestManualWrapper extends Test {
         var entities = [for (i in 0...5) addEntity(i)];
         var processed = movement.update(1);
         Assert.same(entities, processed);
-        for (i => eid in processed) Assert.equals(i + 1, world.position.x[eid]);
+        for (i => eid in processed) Assert.equals(i + 1., world.position.x[eid]);
     }
 
 }

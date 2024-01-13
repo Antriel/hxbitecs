@@ -12,9 +12,9 @@ class TestDirectUsage extends Test {
         Bitecs.addComponent(world, world.velocity, e);
         world.position.x[e] = 0;
         world.velocity.x[e] = 1;
-        Assert.equals(0, world.position.x[e]);
+        Assert.equals(0., world.position.x[e]);
         movement.update(1);
-        Assert.equals(1, world.position.x[e]);
+        Assert.equals(1., world.position.x[e]);
     }
 
 }

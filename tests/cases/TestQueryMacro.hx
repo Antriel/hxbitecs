@@ -13,9 +13,9 @@ class TestQueryMacro extends Test {
         w.addComponent([CompB, CompC], entities[3]);
         w.addComponent(CompC, entities[4]);
         w.update();
-        Assert.equals(1, w.getComponent(CompA, entities[0]).x);
-        Assert.equals(2, w.getComponent(CompA, entities[1]).x);
-        Assert.equals(entities[1], w.getComponent(CompB, entities[1]).i);
+        Assert.equals(1., w.getComponent(CompA, entities[0]).x);
+        Assert.equals(2., w.getComponent(CompA, entities[1]).x);
+        Assert.equals(cast entities[1], w.getComponent(CompB, entities[1]).i);
         Assert.equals(-1, w.getComponent(CompB, entities[2]).i);
         Assert.equals(-1, w.getComponent(CompB, entities[3]).i);
         Assert.equals('Entity ' + entities[3], w.getComponent(CompC, entities[3]).s);

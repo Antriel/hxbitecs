@@ -11,9 +11,9 @@ class TestComponentMacro extends Test {
         Assert.isTrue(Reflect.hasField(w.simpleComponent, 'bool'));
 
         w.simplePrecisionComponent.float[0] = 16777217; // Over max safe int for f32.
-        Assert.notEquals(16777217, w.simplePrecisionComponent.float[0]);
+        Assert.notEquals(16777217., w.simplePrecisionComponent.float[0]);
         w.simplePrecisionComponent.float[0] = 16777215;
-        Assert.equals(16777215, w.simplePrecisionComponent.float[0]);
+        Assert.equals(16777215., w.simplePrecisionComponent.float[0]);
         w.simplePrecisionComponent.int[0] = -1;
         Assert.equals(255, w.simplePrecisionComponent.int[0]);
         w.simplePrecisionComponent.int[0] = 256;
@@ -37,9 +37,9 @@ class TestComponentMacro extends Test {
         while (Bitecs.addEntity(w) != e1) { };
         while (Bitecs.addEntity(w) != e2) { };
         Bitecs.addComponent(w, w.simpleComponent, e1, true); // bitECS resets the value to 0.
-        Assert.notEquals(25, w.simpleComponent.float[e1]);
+        Assert.notEquals(25., w.simpleComponent.float[e1]);
         w.addComponent(SimpleComponent, e2); // Our wrapper initializes the values.
-        Assert.equals(10, w.simpleComponent.float[e2]);
+        Assert.equals(10., w.simpleComponent.float[e2]);
     }
 
     public function testMapWrapper() {
@@ -57,7 +57,7 @@ class TestComponentMacro extends Test {
         var comps = w.addComponent([SimpleComponent, StringComponent], e);
         comps.simpleComponent.setTo(1);
         Assert.equals(1, comps.simpleComponent.int);
-        Assert.equals(1, comps.simpleComponent.float);
+        Assert.equals(1., comps.simpleComponent.float);
         comps.stringComponent.int = 123;
         Assert.equals('hello123', comps.stringComponent.appendInt());
         Assert.equals('hello123', comps.stringComponent.string);

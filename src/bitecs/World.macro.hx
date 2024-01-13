@@ -143,7 +143,7 @@ function buildWorldOf() {
         };
 
         var tt = macro:T;
-        f.kind = TDAbstract(tt, [], [tt, iworld, structure]);
+        f.kind = TDAbstract(tt, [], [], [tt, iworld, structure]);
         f.meta.push({ name: ':forward', pos: ctx.pos });
         f.meta.push({ name: ':transitive', pos: ctx.pos });
         f.meta.push({ name: ':using', params: [macro bitecs.WorldExtensions], pos: ctx.pos });
