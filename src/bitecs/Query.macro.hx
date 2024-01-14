@@ -34,20 +34,27 @@ class QueryBuilder {
         name:String,
         type:ComplexType,
         wrapperPath:TypePath,
-        compExactName:String
+        compExactName:String,
+        isNot:Bool,
     }>;
     final worldType:ComplexType;
     final queryType:ComplexType;
 
     public function new(ctx:BuildContextN) {
         this.ctx = ctx;
-        stores = ctx.types.map(t -> World.components.get(t)).map(c -> {
+        inline function toStore(c:bitecs.World.ComponentData, isNot:Bool) return {
             name: c.name,
             type: c.def.storeType,
             wrapperPath: c.def.wrapperPath,
-            compExactName: c.def.exactName
-        });
-        // for (s in stores) trace(ComplexType.TPath(s.wrapperPath).toType());
+            compExactName: c.def.exactName,
+            isNot: isNot,
+        };
+        stores = [for (t in ctx.types) switch t {
+            case TType(_.get() => { name: 'Not', pack: ['bitecs'] }, params):
+                toStore(World.components.get(params[0]), true);
+            case _:
+                toStore(World.components.get(t), false);
+        }];
         worldType = TAnonymous(stores.map(s -> ({ name: s.name, kind: FVar(s.type), pos: ctx.pos, access: [AFinal] }:Field)));
         queryType = macro:bitecs.Query.QueryType<$worldType>;
     }
@@ -61,7 +68,7 @@ class QueryBuilder {
         // TODO should make sure the `ents`, `length` and `i` are not clashing with the store names.
         var args = [
             { name: 'ents', type: entityArrayType }
-        ].concat(stores);
+        ].concat(stores.filter(s -> !s.isNot));
         var fields:Array<Field> = args.map(arg -> ({
             name: arg.name,
             pos: ctx.pos,
@@ -92,7 +99,7 @@ class QueryBuilder {
 
         final mGetWrapper = Member.method('getWrapper', ({
             args: [{ name: 'eid', type: entityType }],
-            expr: EReturn(EObjectDecl(stores.map(s ->
+            expr: EReturn(EObjectDecl(stores.filter(s -> !s.isNot).map(s ->
                 ({ field: s.name, expr: ENew(s.wrapperPath, [macro eid, macro $i{s.name}]).at() }:ObjectField))).at()).at()
         }:Function));
         mGetWrapper.isBound = true;
@@ -121,7 +128,10 @@ class QueryBuilder {
         var helperTp = 'bitecs.gen.${ctx.name}Helper'.asTypePath();
         var firstHelperTp = 'bitecs.gen.${ctx.name}FirstHelper'.asTypePath();
 
-        var storeExprs = stores.map(s -> (macro w).field(s.name));
+        var storeExprs = stores.map(s -> {
+            var e = (macro w).field(s.name);
+            if (s.isNot) macro bitecs.Bitecs.Not($e{e}) else e;
+        });
         var mNew = Member.method('new', ({
             args: [{ name: 'w', type: worldType }],
             expr: macro this = cast Bitecs.defineQuery([$a{storeExprs}])
@@ -138,7 +148,7 @@ class QueryBuilder {
             args: [{ name: 'w', type: worldType }],
             expr: {
                 var params = [macro this(w)];
-                for (s in stores) params.push((macro w).field(s.name));
+                for (s in stores) if (!s.isNot) params.push((macro w).field(s.name));
                 EReturn(ENew('bitecs.gen.${ctx.name}'.asTypePath(), params).at()).at();
             }
         }:Function));

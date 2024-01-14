@@ -8,7 +8,7 @@ Work in progress.
 - [x] Add basic world-related bitECS API to `World`.
 - [x] Queries should be defined in Systems, ~~but equal queries shouldn't be defined twice~~. That means we will need to generate some common storage type, probably in the World.
 - [x] Support for bitECS array types.
-- [ ] Support for Not queries.
+- [x] Support for Not queries.
 - [ ] Rethink macros.
     - [x] Components – going from `TypedExpr` to `Expr` is too buggy.
     - [ ] More explicit approach for World and Systems, less typing?
