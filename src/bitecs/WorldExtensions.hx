@@ -41,6 +41,7 @@ class WorldExtensions {
         }
         var result = processCompExpr(comp, (comp, pos) -> {
             var cname = comp.name;
+            var localName = '__' + cname;
             var wrapper = comp.def.wrapperPath;
             var args = [];
             for (arg in comp.def.initExtraArgs) {
@@ -53,8 +54,8 @@ class WorldExtensions {
             }
             macro @:pos(pos) @:mergeBlock {
                 bitecs.Bitecs.addComponent($world, $world.$cname, $eid);
-                var $cname = new $wrapper($eid, $world.$cname);
-                $i{cname}.init($a{args});
+                var $localName = new $wrapper($eid, $world.$cname);
+                $i{localName}.init($a{args});
             };
         });
         for (field in initFields) {
@@ -66,7 +67,8 @@ class WorldExtensions {
     public static macro function hasComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
         return processCompExpr(comp, (comp, pos) -> {
             var cname = comp.name;
-            macro @:pos(pos) var $cname = bitecs.Bitecs.hasComponent($world, $world.$cname, $eid);
+            var localName = '__' + cname;
+            macro @:pos(pos) var $localName = bitecs.Bitecs.hasComponent($world, $world.$cname, $eid);
         });
     }
 
@@ -80,8 +82,9 @@ class WorldExtensions {
     public static macro function getComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>) {
         return processCompExpr(comp, (comp, pos) -> {
             var cname = comp.name;
+            var localName = '__' + cname;
             var wrapper = comp.def.wrapperPath;
-            macro @:pos(pos) var $cname = new $wrapper($eid, $world.$cname);
+            macro @:pos(pos) var $localName = new $wrapper($eid, $world.$cname);
         });
     }
 
@@ -116,7 +119,10 @@ class WorldExtensions {
                 // Result value is anon object of all wrappers.
                 switch mode {
                     case Normal:
-                        res.push(EObjectDecl(names.map(n -> ({ field: n, expr: macro $i{n} }:ObjectField))).at());
+                        res.push(EObjectDecl(names.map(n -> ({
+                            field: n,
+                            expr: macro $i{'__' + n}
+                        }:ObjectField))).at());
                     case MergeAnd:
                         res = [Lambda.fold(res.slice(1), (expr, res:Expr) -> res.binOp(expr, OpBoolAnd), res[0])];
                     case NoReturn:
@@ -125,7 +131,7 @@ class WorldExtensions {
                 add(comp);
                 switch mode {
                     case Normal: // Result value is just the single wrapper.
-                        res.push(macro $i{names[0]});
+                        res.push(macro $i{'__' + names[0]});
                     case MergeAnd:
                     case NoReturn:
                 }
