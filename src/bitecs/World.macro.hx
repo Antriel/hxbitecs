@@ -131,9 +131,13 @@ function report(name:String, comps:Array<ComponentData>) {
     }
 }
 
+@:persistent var worldOfCompTypes = new TypeMap<Array<Type>>();
+
 function buildWorldOf() {
+    var compTypes;
     var res = BuildCache.getTypeN('bitecs.WorldOf', (ctx:BuildContextN) -> {
         var structure = getWorldStructure(ctx.types);
+        compTypes = ctx.types;
         var name = ctx.name;
         var iworld = macro:bitecs.World.IWorld<Dynamic>;
         var f = macro class $name<T:$iworld & $structure> {
@@ -151,6 +155,7 @@ function buildWorldOf() {
         // trace(new haxe.macro.Printer().printTypeDefinition(f));
         f;
     });
+    if (compTypes != null) worldOfCompTypes.set(res, compTypes);
     return res;
 }
 

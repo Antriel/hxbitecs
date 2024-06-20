@@ -24,7 +24,19 @@ function build() {
 
     for (itf in Context.getLocalClass().get().interfaces) if (itf.t.get().name == 'ISystem') {
         worldType = itf.params[0];
-        worldCt = worldType.toComplex();
+        worldCt = haxe.macro.TypeTools.toComplexType(worldType);
+        if (worldCt == null) {
+            // If the type has a monomorph (WorldOf<T>), try rebuilding it.
+            var compTypes = bitecs.World.worldOfCompTypes.get(worldType);
+            if (compTypes == null)
+                Context.error('Failed to generate ComplexType for the World.', Context.currentPos());
+            worldCt = ComplexType.TPath({
+                pack: ['bitecs'],
+                name: 'World',
+                sub: 'WorldOf',
+                params: compTypes.map(t -> TypeParam.TPType(t.toComplex())),
+            });
+        }
         break;
     }
     if (newField == null) {
