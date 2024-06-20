@@ -151,7 +151,7 @@ function buildWorldOf() {
         // trace(new haxe.macro.Printer().printTypeDefinition(f));
         f;
     });
-    return res.toComplex();
+    return res;
 }
 
 private function getWorldStructure(types:Array<Type>) {
