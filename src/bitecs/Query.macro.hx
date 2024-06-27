@@ -85,7 +85,17 @@ class QueryBuilder {
         newExpr = newExpr.concat(macro this.length = ents.length);
         final mNew = Member.method('new', ({ args: args, expr: newExpr }:Function));
         mNew.isBound = true;
+        #if (!debug || hxbitecs.nodebug)
         final mHasNext = Member.method('hasNext', ({ args: [], expr: macro return i < length }:Function));
+        #else
+        final mHasNext = Member.method('hasNext', ({
+            args: [],
+            expr: macro {
+                if (i >= length && length > ents.length) throw "Detected entity removal during iteration.";
+                return i < length;
+            }
+        }:Function));
+        #end
         mHasNext.isBound = true;
 
         final mNext = Member.method('next', ({
