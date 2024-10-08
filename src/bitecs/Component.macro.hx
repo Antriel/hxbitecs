@@ -35,6 +35,7 @@ function cacheExprs() {
         case TInst(t, params): t.get();
         case _: Context.error("Should be a class.", Context.currentPos());
     }
+    cache.set(t, null); // Mark as being processed.
     cache.set(t, {
         fields: fields.map(field -> {
             final type = switch field.kind {
@@ -89,8 +90,11 @@ function getDefinition(t:Type):ComponentDefinition {
     };
     final actualType = Context.followWithAbstracts(t);
     actualType.getFields(); // Workaround for https://github.com/HaxeFoundation/haxe/issues/7905, probably...
+    if (!cache.exists(actualType))
+        Context.error("Type does not implement `bitecs.IComponent`.", typePos);
     final cached = cache.get(actualType);
-    if (cached == null) Context.error("Type does not implement `bitecs.IComponent`.", typePos);
+    if (cached == null)
+        Context.error("Type not finished typing in time. This might happen if the type depends on its World or something.", typePos);
     final def = new ComponentDefinition(compName, typePos, cached);
     def.buildWrapper();
     def.exactName = t.toExactString();
