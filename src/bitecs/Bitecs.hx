@@ -22,6 +22,7 @@ import bitecs.Query.QueryType;
     static function hasComponent<W>(world:W, component:Dynamic, eid:Entity):Bool;
     static function getEntityComponents<W>(world:W, eid:Entity):Array<Dynamic>;
     static function defineQuery<W>(components:Array<Dynamic>):QueryType<W>;
+    static function registerQuery<W>(w:W, q:QueryType<W>):Void;
     static function Changed<W>(c:Dynamic):Dynamic;
     static function Not<W>(c:Dynamic):Dynamic;
     static function enterQuery<W>(query:QueryType<W>):QueryType<W>;

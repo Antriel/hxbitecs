@@ -31,6 +31,18 @@ class WorldExtensions {
         final comps = Bitecs.getEntityComponents(world, eid);
         for (c in comps) Bitecs.removeComponent(world, c, eid, reset);
     }
+
+    #if bitecs.checkQueues
+    /**
+     * Debug method, only available if `bitecs.checkQueues` is defined.
+     * Returns a Set of all registered queries. Used to debug `checkEntered`/`checkExited` queues.
+     */
+    public static inline function getQueries(world:AnyWorld):js.lib.Set<Dynamic> {
+        final symbol = Lambda.find(js.lib.Object.getOwnPropertySymbols(world), s ->
+            (s:Dynamic).description == 'queries');
+        return js.Syntax.code('{0}[{1}]', world, symbol);
+    }
+    #end
     #end
 
     public static macro function addComponent(world:ExprOf<AnyWorld>, comp:Expr, eid:ExprOf<Entity>, init = null) {

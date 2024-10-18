@@ -182,15 +182,50 @@ class QueryBuilder {
         }:Function));
         mFirst.isBound = true;
 
-        var mEntered = Member.method('enteredQuery', ({
-            args: [],
-            expr: macro return bitecs.Bitecs.enterQuery(this)
-        }:Function));
+        var mEntered = Member.method('enteredQuery', (
+            #if bitecs.checkQueues
+            {
+                args: [{ name: 'w', type: worldType, opt: false }],
+                expr: macro {
+                    final q = bitecs.Bitecs.enterQuery(this);
+                    final symbol = Lambda.find(js.lib.Object.getOwnPropertySymbols(w),
+                        s -> (s:Dynamic).description == 'queryMap');
+                    final queryMap:js.lib.Map<Dynamic, Dynamic> = js.Syntax.code('{0}[{1}]', w, symbol);
+                    if (!queryMap.has(this)) bitecs.Bitecs.registerQuery(w, this);
+                    queryMap.get(this).checkEntered = true;
+                    return q;
+                }
+            }
+            #else
+            {
+                args: [{ name: 'w', type: worldType, opt: true }],
+                expr: macro return bitecs.Bitecs.enterQuery(this)
+            }
+            #end
+            :Function));
         mEntered.isBound = true;
-        var mExited = Member.method('exitedQuery', ({
-            args: [],
-            expr: macro return bitecs.Bitecs.exitQuery(this)
-        }:Function));
+        var mExited = Member.method('exitedQuery', (
+            #if bitecs.checkQueues
+            {
+                args: [{ name: 'w', type: worldType, opt: false }],
+                expr: macro {
+                    final q = bitecs.Bitecs.exitQuery(this);
+                    final symbol = Lambda.find(js.lib.Object.getOwnPropertySymbols(w),
+                        s -> (s:Dynamic).description == 'queryMap');
+                    final queryMap:js.lib.Map<Dynamic, Dynamic> = js.Syntax.code('{0}[{1}]', w, symbol);
+                    if (!queryMap.has(this)) bitecs.Bitecs.registerQuery(w, this);
+                    queryMap.get(this).checkExited = true;
+                    return q;
+                }
+            }
+            #else
+            {
+                args: [{ name: 'w', type: worldType, opt: true }],
+                expr: macro return bitecs.Bitecs.exitQuery(this)
+            }
+            #end
+            :Function));
+
         mExited.isBound = true;
 
         var mGetLength = Member.method('getLength', ({
