@@ -14,8 +14,8 @@
 				"echo": true,
 				"reveal": "silent",
 				"panel": "shared",
-				"showReuseMessage": true,
-				"clear": false
+				"showReuseMessage": false,
+				"clear": true
 			}
 		},
 		{

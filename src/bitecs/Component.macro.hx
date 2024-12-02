@@ -62,12 +62,12 @@ function cacheExprs() {
         ].concat(Context.getLocalImports()),
         usings: Context.getLocalUsing().map(ref -> {
             var classType = ref.get();
-            {
+            ({
                 pack: classType.pack,
                 name: classType.module,
                 sub: classType.name,
                 params: []
-            };
+            }:TypePath);
         }),
     });
     return []; // Keep the actual class empty.
