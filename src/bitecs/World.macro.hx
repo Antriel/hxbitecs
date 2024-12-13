@@ -42,7 +42,8 @@ private function parseFromMetaExpr(exprs:Array<Expr>) {
         try {
             var name = e.toString();
             var t = Context.getType(name);
-            if (!components.exists(t)) Context.error('Component "$name" not registered yet?', Context.currentPos());
+            if (!components.exists(t))
+                Context.error('Component "$name" not registered yet?', Context.currentPos());
             result.push(components.get(t));
         } catch (e) {
             Context.error('Failed to resolve components.', Context.currentPos());
@@ -106,6 +107,7 @@ function build() {
             case _: throw "unexpected";
         }
         f.fields = fields;
+        // trace(new haxe.macro.Printer().printTypeDefinition(f));
         f;
 
     });
@@ -139,14 +141,14 @@ function buildWorldOf() {
         var structure = getWorldStructure(ctx.types);
         compTypes = ctx.types;
         var name = ctx.name;
-        var iworld = macro:bitecs.World.IWorld<Dynamic>;
+        var iworld = macro :bitecs.World.IWorld<Dynamic>;
         var f = macro class $name<T:$iworld & $structure> {
 
             @:from public static inline function fromStructure(s:$structure) return cast s;
 
         };
 
-        var tt = macro:T;
+        var tt = macro :T;
         f.kind = TDAbstract(tt, [], [], [tt, iworld, structure]);
         f.meta.push({ name: ':forward', pos: ctx.pos });
         f.meta.push({ name: ':transitive', pos: ctx.pos });
@@ -181,7 +183,7 @@ private function addComponentField(fields:Array<Field>, c):Void {
     });
 }
 
-private var entityType = macro:bitecs.Entity;
+private var entityType = macro :bitecs.Entity;
 
 typedef ComponentData = {
 

@@ -47,7 +47,11 @@ function cacheExprs() {
             {
                 field: field,
                 type: type,
-                ct: type == null ? null : type.toComplex()
+                // Postpone getting `ct` until we actually build. We need to do the ct -> type -> ct dance
+                // otherwise the moved expressions won't find their types (despite also copying imports /shrug).
+                // And converting it here can fail. I think tink's magic `toType` can postpone it somehow if
+                // the type isn't ready. But it can be ready when we will actually define the module later.
+                ct: null,
             }
         }),
         imports: [
@@ -114,13 +118,10 @@ class ComponentDefinition {
     final name:String;
     final typePos:Position;
     final compFields:Array<{
-
         /** The field that needs to exist on the actual component storage. */
         var storeField:Field;
-
         /** The defition field used to create the bitECS store. */
         var storeDefField:ObjectField;
-
         var type:CompFieldType;
         var ct:ComplexType;
         var initExpr:Expr;
@@ -189,7 +190,8 @@ class ComponentDefinition {
                             case _:
                                 Mapped;
                         }
-                    case TInst(_.get() => t, params) if (t.pack.join('.') == 'js.lib' && getBitEcsData(t.name) != null):
+                    case TInst(_.get() => t, params)
+                        if (t.pack.join('.') == 'js.lib' && getBitEcsData(t.name) != null):
                         if (typeMeta != null) Context.warning('Metadata ignored.', typeMeta.pos);
 
                         BitEcsArray(t.name, getArrLength());
@@ -213,9 +215,10 @@ class ComponentDefinition {
         }
     }
 
-    function addCompField(type:CompFieldType, mod:{valGet:Expr->Expr, valSet:Expr->Expr}, writable:Bool, expr:Expr, src:SourceField) {
+    function addCompField(type:CompFieldType, mod:{valGet:Expr->Expr, valSet:Expr->Expr}, writable:Bool,
+            expr:Expr, src:SourceField) {
         final field = src.field;
-        var ct = src.ct;
+        var ct = src.type.toComplex(); // Get CT now. See note when setting cache as to why.
         var storeDefField = null;
         final storeField = {
             name: field.name,
@@ -223,7 +226,8 @@ class ComponentDefinition {
             kind: switch type {
                 case BitEcs(typeName) | BitEcsArray(typeName, _):
                     var bitEcsType = getBitEcsData(typeName);
-                    if (bitEcsType == null) haxe.macro.Context.error('Failed to determine bitECS type.', field.pos);
+                    if (bitEcsType == null)
+                        haxe.macro.Context.error('Failed to determine bitECS type.', field.pos);
                     storeDefField = {
                         field: field.name,
                         expr: bitEcsType.expr.expr.at(field.pos)
@@ -231,7 +235,7 @@ class ComponentDefinition {
                     var storeCt = bitEcsType.ct;
                     switch type {
                         case BitEcsArray(_, size):
-                            storeCt = macro:Array<$storeCt>;
+                            storeCt = macro :Array<$storeCt>;
                             // Make type be a typed array, if the wanted type doesn't unify with it.
                             if (!ComplexTypeTools.toType(bitEcsType.ct).unifiesWith(src.type))
                                 ct = bitEcsType.ct;
@@ -240,7 +244,7 @@ class ComponentDefinition {
                     }
                     FieldType.FVar(storeCt);
                 case Mapped:
-                    FieldType.FVar(macro:js.lib.Map<bitecs.Entity, $ct>);
+                    FieldType.FVar(macro :js.lib.Map<bitecs.Entity, $ct>);
             },
             doc: field.doc
         };
@@ -349,7 +353,10 @@ class ComponentDefinition {
             doc: 'Sets the component values to their defaults.'
         });
         final selfCt = ComplexType.TPath(wrapperPath);
-        var tthis = Member.method('tthis', false, ({ args: [], expr: macro return (cast this:$selfCt) }:Function));
+        var tthis = Member.method('tthis', false, ({
+            args: [],
+            expr: macro return (cast this:$selfCt)
+        }:Function));
         tthis.isBound = true;
         wrapperFields.push(tthis);
 
@@ -374,7 +381,7 @@ class ComponentDefinition {
                     name: 'new',
                     kind: FFun({
                         params: [{ name: 'E', constraints: [entityType] }],
-                        args: [{ name: 'ent', type: macro:E }, { name: 'store', type: storeType }],
+                        args: [{ name: 'ent', type: macro :E }, { name: 'store', type: storeType }],
                         expr: macro this = { ent: ent, store: store }
                     }),
                     access: [APublic, AInline],
@@ -413,22 +420,22 @@ private enum CompFieldType {
 
 }
 
-private var worldType = macro:bitecs.World;
-private var entityType = macro:bitecs.Entity;
-private var voidType = macro:Void;
+private var worldType = macro :bitecs.World;
+private var entityType = macro :bitecs.Entity;
+private var voidType = macro :Void;
 typedef BitEcsTypeData = {names:Array<String>, ct:ComplexType, expr:Expr, byteSize:Int};
 
 private var bitEcsTypeData:Array<BitEcsTypeData> = [
-    { names: ['Int8Array', 'i8', 'int8'], ct: macro:js.lib.Int8Array, expr: macro bitecs.Bitecs.Types.i8, byteSize: 1 },
-    { names: ['Uint8Array', 'ui8', 'uint8'], ct: macro:js.lib.Uint8Array, expr: macro bitecs.Bitecs.Types.ui8, byteSize: 1 },
-    { names: ['Uint8ClampedArray', 'ui8c'], ct: macro:js.lib.Uint8ClampedArray, expr: macro bitecs.Bitecs.Types.ui8c, byteSize: 1 },
-    { names: ['Int16Array', 'i16', 'int16'], ct: macro:js.lib.Int16Array, expr: macro bitecs.Bitecs.Types.i16, byteSize: 2 },
-    { names: ['Uint16Array', 'ui16', 'uint16'], ct: macro:js.lib.Uint16Array, expr: macro bitecs.Bitecs.Types.ui16, byteSize: 2 },
-    { names: ['Int32Array', 'i32', 'int32'], ct: macro:js.lib.Int32Array, expr: macro bitecs.Bitecs.Types.i32, byteSize: 4 },
-    { names: ['Uint32Array', 'ui32', 'uint32'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.ui32, byteSize: 4 },
-    { names: ['Float32Array', 'f32', 'float32'], ct: macro:js.lib.Float32Array, expr: macro bitecs.Bitecs.Types.f32, byteSize: 4 },
-    { names: ['Float64Array', 'f64', 'float64'], ct: macro:js.lib.Float64Array, expr: macro bitecs.Bitecs.Types.f64, byteSize: 8 },
-    { names: ['Uint32Array', 'eid', 'entity'], ct: macro:js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid, byteSize: 4 },
+    { names: ['Int8Array', 'i8', 'int8'], ct: macro :js.lib.Int8Array, expr: macro bitecs.Bitecs.Types.i8, byteSize: 1 },
+    { names: ['Uint8Array', 'ui8', 'uint8'], ct: macro :js.lib.Uint8Array, expr: macro bitecs.Bitecs.Types.ui8, byteSize: 1 },
+    { names: ['Uint8ClampedArray', 'ui8c'], ct: macro :js.lib.Uint8ClampedArray, expr: macro bitecs.Bitecs.Types.ui8c, byteSize: 1 },
+    { names: ['Int16Array', 'i16', 'int16'], ct: macro :js.lib.Int16Array, expr: macro bitecs.Bitecs.Types.i16, byteSize: 2 },
+    { names: ['Uint16Array', 'ui16', 'uint16'], ct: macro :js.lib.Uint16Array, expr: macro bitecs.Bitecs.Types.ui16, byteSize: 2 },
+    { names: ['Int32Array', 'i32', 'int32'], ct: macro :js.lib.Int32Array, expr: macro bitecs.Bitecs.Types.i32, byteSize: 4 },
+    { names: ['Uint32Array', 'ui32', 'uint32'], ct: macro :js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.ui32, byteSize: 4 },
+    { names: ['Float32Array', 'f32', 'float32'], ct: macro :js.lib.Float32Array, expr: macro bitecs.Bitecs.Types.f32, byteSize: 4 },
+    { names: ['Float64Array', 'f64', 'float64'], ct: macro :js.lib.Float64Array, expr: macro bitecs.Bitecs.Types.f64, byteSize: 8 },
+    { names: ['Uint32Array', 'eid', 'entity'], ct: macro :js.lib.Uint32Array, expr: macro bitecs.Bitecs.Types.eid, byteSize: 4 },
 ];
 
 private function getBitEcsData(name:String):Null<BitEcsTypeData> {
