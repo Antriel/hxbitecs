@@ -29,6 +29,7 @@ import bitecs.Query.QueryType;
     static function exitQuery<W>(query:QueryType<W>):QueryType<W>;
     static function resetChangedQuery<W>(world:W, query:QueryType<W>):QueryType<W>;
     static function removeQuery<W>(world:W, query:QueryType<W>):QueryType<W>;
+    static function checkEntity<W>(world:W, query:QueryType<W>, eid:Entity):Bool;
     static function commitRemovals<W>(world:W):Void;
     static function defineSerializer<W>(target:Dynamic, ?maxBytes:Int):Dynamic->js.lib.ArrayBuffer;
     static function defineDeserializer<W>(target:Dynamic):(world:W, packet:js.lib.ArrayBuffer, ?mode:DESERIALIZE_MODE) -> Array<Entity>;

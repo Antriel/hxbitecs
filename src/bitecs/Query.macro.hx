@@ -10,8 +10,10 @@ using tink.MacroApi;
 function build() {
     return switch Context.getLocalType() {
         case TInst(t, params):
-            var compTypes = Lambda.flatten([for (param in params) World.parseComponent(param)]).map(c -> c.type);
-            var iterType = BuildCache.getTypeN('bitecs.gen.Query', compTypes, ctx -> new QueryBuilder(ctx).build());
+            var compTypes = Lambda.flatten([for (param in params) World.parseComponent(param)])
+                .map(c -> c.type);
+            var iterType = BuildCache.getTypeN('bitecs.gen.Query', compTypes,
+                ctx -> new QueryBuilder(ctx).build());
             // BuildCache doesn't like building abstract, so we build the actual iterator, but we want to return the abstract.
             switch TypeTools.toComplexType(iterType) {
                 case TPath(p):
@@ -23,9 +25,9 @@ function build() {
     }
 }
 
-private final entityType = macro:bitecs.Entity;
-private final entityArrayType = macro:Array<bitecs.Entity>;
-private final intType = macro:Int;
+private final entityType = macro :bitecs.Entity;
+private final entityArrayType = macro :Array<bitecs.Entity>;
+private final intType = macro :Int;
 
 class QueryBuilder {
 
@@ -55,8 +57,13 @@ class QueryBuilder {
             case _:
                 toStore(World.components.get(t), false);
         }];
-        worldType = TAnonymous(stores.map(s -> ({ name: s.name, kind: FVar(s.type), pos: ctx.pos, access: [AFinal] }:Field)));
-        queryType = macro:bitecs.Query.QueryType<$worldType>;
+        worldType = TAnonymous(stores.map(s -> ({
+            name: s.name,
+            kind: FVar(s.type),
+            pos: ctx.pos,
+            access: [AFinal]
+        }:Field)));
+        queryType = macro :bitecs.Query.QueryType<$worldType>;
     }
 
     public function build():TypeDefinition {
@@ -240,18 +247,37 @@ class QueryBuilder {
         }:Function));
         mEntities.isBound = true;
 
+        var mOnEntity = Member.method('onEntity', ({
+            args: [{ name: 'w', type: worldType }, { name: 'eid', type: entityType }],
+            expr: EReturn(
+                EObjectDecl(stores.filter(s -> !s.isNot).map(s ->
+                    ({ field: s.name, expr: ENew(s.wrapperPath, [macro eid, EField(macro w, s.name).at()]).at() }:ObjectField))
+                ).at()
+            ).at(),
+        }:Function));
+        mOnEntity.isBound = true;
+        var mHasEntity = Member.method('hasEntity', ({
+            args: [{ name: 'w', type: worldType }, { name: 'eid', type: entityType }],
+            expr: macro return bitecs.Bitecs.checkEntity(w, this, eid)
+        }:Function));
+        mHasEntity.isBound = true;
+
         var queryWrapperTd:TypeDefinition = {
             pack: ['bitecs', 'gen'],
             name: ctx.name + 'Wrapper',
             pos: ctx.pos,
             kind: TDAbstract(queryType, [queryType]),
-            fields: [mNew, mInit, mIterator, mKeyValIter, mOn, mFirst, mEntered, mExited, mGetLength, mEntities],
-            meta: [{ name: ':bitecs.comps', pos: ctx.pos, params: stores.map(s -> s.compExactName.resolve()) }]
+            fields: [mNew, mInit, mIterator, mKeyValIter, mOn, mFirst, mEntered, mExited, mGetLength, mEntities, mOnEntity, mHasEntity],
+            meta: [{
+                name: ':bitecs.comps',
+                pos: ctx.pos,
+                params: stores.map(s -> s.compExactName.resolve())
+            }]
         };
         // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperTd));
 
         var mhNew = Member.method('new', ({
-            args: [{ name: 'w', type: macro:T }, { name: 'q' }],
+            args: [{ name: 'w', type: macro :T }, { name: 'q' }],
             params: [{ name: 'T', constraints: [worldType] }],
             expr: macro {
                 this = { w: w, q: q };
@@ -259,16 +285,22 @@ class QueryBuilder {
             }
         }:Function));
         mhNew.isBound = true;
-        var mhIter = Member.method('iterator', ({ args: [], expr: macro return this.q.iterator(this.w) }:Function));
+        var mhIter = Member.method('iterator', ({
+            args: [],
+            expr: macro return this.q.iterator(this.w)
+        }:Function));
         mhIter.isBound = true;
-        var mhKeyIter = Member.method('keyValueIterator', ({ args: [], expr: macro return this.q.keyValueIterator(this.w) }:Function));
+        var mhKeyIter = Member.method('keyValueIterator', ({
+            args: [],
+            expr: macro return this.q.keyValueIterator(this.w)
+        }:Function));
         mhKeyIter.isBound = true;
 
         var queryWrapperHelperTd:TypeDefinition = {
             pack: ['bitecs', 'gen'],
             name: ctx.name + 'Helper',
             pos: ctx.pos,
-            kind: TDAbstract(macro:{w:$worldType, q:$selfCt}),
+            kind: TDAbstract(macro :{w:$worldType, q:$selfCt}),
             fields: [mhNew, mhIter, mhKeyIter]
         }
         // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperHelperTd));
@@ -296,7 +328,7 @@ class QueryBuilder {
             pack: ['bitecs', 'gen'],
             name: ctx.name + 'FirstHelper',
             pos: ctx.pos,
-            kind: TDAbstract(macro:{w:$worldType, q:$selfCt}),
+            kind: TDAbstract(macro :{w:$worldType, q:$selfCt}),
             fields: [mhNew, mfhIter, mfhKeyIter]
         }
         // trace(new haxe.macro.Printer().printTypeDefinition(queryWrapperFirstHelperTd));
