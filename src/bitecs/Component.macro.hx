@@ -359,6 +359,16 @@ class ComponentDefinition {
         }:Function));
         tthis.isBound = true;
         wrapperFields.push(tthis);
+        wrapperFields.push({
+            name: 'toEntity',
+            kind: FFun({
+                args: [],
+                expr: macro return this.ent,
+            }),
+            pos: typePos,
+            access: [APublic, AInline],
+            meta: [{ name: ':to', pos: typePos }]
+        });
 
         for (f in funFields) wrapperFields.push(f);
 
