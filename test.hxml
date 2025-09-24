@@ -6,7 +6,6 @@ lib.hxml
 --dce full
 -D analyzer-optimize
 -D js-es=6
--D no-deprecation-warnings
 -D message.reporting=pretty
 -D haxe-next
 

@@ -5,7 +5,7 @@
   "author": "Peter Achberger",
   "license": "MIT",
   "dependencies": {
-    "bitecs": "github:antriel/bitecs#universes",
-    "lix": "^15.12.0"
+    "bitecs": "github:NateTheGreatt/bitECS",
+    "lix": "github:antriel/lix.client"
   }
 }
