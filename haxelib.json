@@ -1,12 +1,10 @@
 {
     "name": "hxbitecs",
-    "description": "Macro powered Haxe wrapper for BitECS.",
+    "description": "Macro powered Haxe wrapper for bitECS.",
     "classPath": "src",
     "version": "0.0.0",
     "license": "MIT",
     "releasenote": "...",
     "contributors": ["Antriel"],
-    "dependencies": {
-        "tink_macro": "1.0.0"
-    }
+    "dependencies": {}
 }
