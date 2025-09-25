@@ -4,7 +4,11 @@ import haxe.extern.EitherType;
 import bitecs.core.entity.EntityId;
 
 @:jsRequire("bitecs") @valueModuleOnly extern class Bitecs {
-	static function createWorld<T>(args:haxe.extern.Rest<ts.AnyOf2<bitecs.core.entityindex.EntityIndex, T>>):{ };
+    static overload function createWorld():{};
+    static overload function createWorld<T>(ctx:T):T;
+    static overload function createWorld<T>(ctx:T, index:bitecs.core.entityindex.EntityIndex):T;
+    static overload function createWorld(index:bitecs.core.entityindex.EntityIndex):{};
+    static overload function createWorld<T>(index:bitecs.core.entityindex.EntityIndex, ctx:T):T;
 	static function resetWorld(world:{ }):{ };
 	static function deleteWorld(world:{ }):Void;
 	static function getWorldComponents(world:{ }):Array<String>;
