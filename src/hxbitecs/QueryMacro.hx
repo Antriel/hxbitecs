@@ -19,7 +19,8 @@ function build() {
             var name = 'Query${baseName}_${termFields.join('_')}';
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
-            return MacroUtils.buildGenericType(name, ct, () -> generateQuery(name, target, termFields));
+            return MacroUtils.buildGenericType(name, ct, () ->
+                generateQuery(name, target, terms, termFields));
         case _:
             Context.error("QueryMacro requires exactly one type parameter", Context.currentPos());
     }
@@ -39,10 +40,9 @@ function getTermFields(terms:Type):Array<String> {
     }
 }
 
-function generateQuery(name:String, target:Type, termFields:Array<String>):Array<TypeDefinition> {
+function generateQuery(name:String, target:Type, terms:Type, termFields:Array<String>):Array<TypeDefinition> {
     final pos = Context.currentPos();
 
-    var wrapperName = name + 'Wrapper';
     var queryFields:Array<Field> = [];
     var constructorArgs = [{ name: "world", type: TypeTools.toComplexType(target) }];
     var worldComponentsExpr = [for (field in termFields) macro world.$field];
@@ -64,7 +64,17 @@ function generateQuery(name:String, target:Type, termFields:Array<String>):Array
         pack: ['hxbitecs'],
         name: 'QueryIterator',
         params: [
-            TPType(TPath({ pack: ['hxbitecs'], name: wrapperName }))
+            TPType(TPath({
+                pack: ['hxbitecs'],
+                name: 'CompWrapperMacro',
+                params: [
+                    TPType(TypeTools.toComplexType(target)),
+                    TPExpr(switch terms {
+                        case TInst(_.get().kind => KExpr(expr), _): expr;
+                        case _: Context.error('Unsupported terms type: $terms', pos);
+                    }),
+                ]
+            }))
         ]
     };
 
@@ -86,75 +96,7 @@ function generateQuery(name:String, target:Type, termFields:Array<String>):Array
         kind: TDAbstract(TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' })),
         fields: queryFields
     };
-
-    // Generate the wrapper class.
-    var wrapperFields:Array<Field> = [];
-
-    // Basic fields
-    wrapperFields.push({
-        name: "query",
-        kind: FVar(TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' })),
-        pos: pos,
-        access: [APublic, AFinal]
-    });
-
-    wrapperFields.push({
-        name: "eid",
-        kind: FVar(TPath({ pack: [], name: 'Int' })),
-        pos: pos,
-        access: [APublic, AFinal]
-    });
-
-    // Component field accessors - mock for now
-    var componentIndex = 0;
-    for (field in termFields) {
-        wrapperFields.push({
-            name: field,
-            kind: FVar(TPath({ pack: [], name: 'Dynamic' })), // Mock - will be proper wrapper later
-            pos: pos,
-            access: [APublic, AFinal]
-        });
-        componentIndex++;
-    }
-
-    // Constructor
-    var wrapperConstructorExprs = [
-        macro this.eid = eid,
-        macro this.query = query
-    ];
-
-    componentIndex = 0;
-    for (field in termFields) {
-        var index = macro $v{componentIndex};
-        wrapperConstructorExprs.push(macro this.$field = query.allComponents[$index]); // Mock assignment
-        componentIndex++;
-    }
-
-    wrapperFields.push({
-        name: "new",
-        kind: FFun({
-            args: [
-                { name: "eid", type: TPath({ pack: [], name: 'Int' }) },
-                { name: "query", type: TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' }) }
-            ],
-            ret: null,
-            expr: { expr: EBlock(wrapperConstructorExprs), pos: pos }
-        }),
-        pos: pos,
-        access: [APublic, AInline]
-    });
-
-    var wrapperDef:TypeDefinition = {
-        name: wrapperName,
-        pack: ['hxbitecs'],
-        pos: pos,
-        kind: TDClass(),
-        fields: wrapperFields
-    };
-
-    // trace(new haxe.macro.Printer().printTypeDefinition(queryDef));
-    // trace(new haxe.macro.Printer().printTypeDefinition(wrapperDef));
-
-    return [queryDef, wrapperDef];
+    trace(new haxe.macro.Printer().printTypeDefinition(queryDef));
+    return [queryDef];
 }
 #end
