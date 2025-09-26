@@ -8,7 +8,7 @@ import haxe.macro.TypeTools;
 #end
 
 #if !macro
-@:genericBuild(hxbitecs.CompWrapperMacro.build()) class CompWrapperMacro<World, Rest> { }
+@:genericBuild(hxbitecs.EntityWrapperMacro.build()) class EntityWrapperMacro<World, Rest> { }
 
 #else
 function build() {
@@ -17,12 +17,12 @@ function build() {
             var baseName = MacroUtils.getBaseName(world);
             var termInfos = TermUtils.parseTerms(world, terms);
             var termFields = [for (term in termInfos) term.name];
-            var name = 'CompWrapper${baseName}_${termFields.join('_')}';
+            var name = 'EntityWrapper${baseName}_${termFields.join('_')}';
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
             return MacroUtils.buildGenericType(name, ct, () -> generateWrapper(name, world, termInfos));
         case _:
-            Context.error("CompWrapperMacro requires exactly two type parameters", Context.currentPos());
+            Context.error("EntityWrapperMacro requires exactly two type parameters", Context.currentPos());
     }
 }
 
@@ -37,22 +37,10 @@ function generateWrapper(name:String, world:Type, termInfos:Array<TermUtils.Term
         var wrapperType:ComplexType;
 
         switch pattern {
-            case SoA(_):
+            case SoA(_) | AoS(_) | Tag:
                 wrapperType = TPath({
                     pack: ['hxbitecs'],
-                    name: 'SoAWrapperMacro',
-                    params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
-                });
-            case AoS(_):
-                wrapperType = TPath({
-                    pack: ['hxbitecs'],
-                    name: 'AoSWrapperMacro',
-                    params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
-                });
-            case Tag:
-                wrapperType = TPath({
-                    pack: ['hxbitecs'],
-                    name: 'TagWrapperMacro',
+                    name: 'ComponentWrapperMacro',
                     params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
                 });
         }
@@ -104,7 +92,7 @@ function generateWrapper(name:String, world:Type, termInfos:Array<TermUtils.Term
         var wrapperTypePath = switch wrapper.wrapperType {
             case TPath(p): p;
             case _: Context.error('Unexpected wrapper type for $wrapperName', pos);
-        }
+        };
 
         switch wrapper.pattern {
             case SoA(_) | AoS(_):

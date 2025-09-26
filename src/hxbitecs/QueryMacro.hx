@@ -56,7 +56,7 @@ function generateQuery(name:String, target:Type, terms:Type,
         params: [
             TPType(TPath({
                 pack: ['hxbitecs'],
-                name: 'CompWrapperMacro',
+                name: 'EntityWrapperMacro',
                 params: [
                     TPType(TypeTools.toComplexType(target)),
                     TPExpr(switch terms {
