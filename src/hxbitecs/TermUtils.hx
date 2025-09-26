@@ -26,6 +26,17 @@ typedef QueryTermInfo = {
 
 }
 
+typedef SimpleTermInfo = {
+
+    // All unique components collected from the simple terms
+    allComponents:Array<TermInfo>,
+    // Simple component expressions for bitECS (no operators)
+    componentExprs:Array<Expr>,
+    // Unique identifier based on component list
+    structureId:String
+
+}
+
 function parseTerms(worldType:Type, termsType:Type):QueryTermInfo {
     var termExprs = getTermExpressions(termsType);
     var allComponents:Array<TermInfo> = [];
@@ -41,6 +52,31 @@ function parseTerms(worldType:Type, termsType:Type):QueryTermInfo {
     return {
         allComponents: allComponents,
         queryExprs: queryExprs,
+        structureId: structureId
+    };
+}
+
+function parseSimpleTerms(worldType:Type, termsType:Type):SimpleTermInfo {
+    var termExprs = getTermExpressions(termsType);
+    var allComponents:Array<TermInfo> = [];
+    var componentExprs:Array<Expr> = [];
+
+    for (expr in termExprs) {
+        switch expr.expr {
+            // Only allow simple component references: pos, vel, health
+            case EConst(CIdent(componentName)):
+                collectComponent(worldType, componentName, allComponents);
+                componentExprs.push(macro world.$componentName);
+            case _:
+                Context.error('EntityAccessor only supports simple component names, not operators: ${expr.expr}', expr.pos);
+        }
+    }
+
+    var structureId = generateSimpleStructureId(termExprs);
+
+    return {
+        allComponents: allComponents,
+        componentExprs: componentExprs,
         structureId: structureId
     };
 }
@@ -111,6 +147,21 @@ function generateStructureId(termExprs:Array<Expr>):String {
 
     return parts.join('_');
 }
+function generateSimpleStructureId(termExprs:Array<Expr>):String {
+    var parts:Array<String> = [];
+
+    for (expr in termExprs) {
+        switch expr.expr {
+            case EConst(CIdent(name)):
+                parts.push(name);
+            case _:
+                parts.push('Unknown');
+        }
+    }
+
+    return parts.join('_');
+}
+
 function exprToIdString(expr:Expr):String {
     return switch expr.expr {
         case EConst(CIdent(name)):

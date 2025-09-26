@@ -54,8 +54,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testOrOperator() {
-        var posOrVel:hxbitecs.QueryMacro<MyQueryWorld, [Or(pos, vel)]>;
-        posOrVel = new hxbitecs.QueryMacro<MyQueryWorld, [Or(pos, vel)]>(world);
+        var posOrVel = new hxbitecs.QueryMacro<MyQueryWorld, [Or(pos, vel)]>(world);
 
         var entityCount = 0;
         for (e in posOrVel) {
@@ -67,8 +66,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testNotOperator() {
-        var posNotVel:hxbitecs.QueryMacro<MyQueryWorld, [pos, Not(vel)]>;
-        posNotVel = new hxbitecs.QueryMacro<MyQueryWorld, [pos, Not(vel)]>(world);
+        var posNotVel = new hxbitecs.QueryMacro<MyQueryWorld, [pos, Not(vel)]>(world);
 
         var entityCount = 0;
         var oddEntityIds = [];
@@ -83,8 +81,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testAndOperator() {
-        var posAndVel:hxbitecs.QueryMacro<MyQueryWorld, [And(pos, vel)]>;
-        posAndVel = new hxbitecs.QueryMacro<MyQueryWorld, [And(pos, vel)]>(world);
+        var posAndVel = new hxbitecs.QueryMacro<MyQueryWorld, [And(pos, vel)]>(world);
 
         var entityCount = 0;
         for (e in posAndVel) {
@@ -96,8 +93,8 @@ class TestQueryMacro extends Test {
     }
 
     public function testComplexQuery() {
-        var complexQuery:hxbitecs.QueryMacro<MyQueryWorld, [pos, Or(health, isPoisoned), Not(vel)]>;
-        complexQuery = new hxbitecs.QueryMacro<MyQueryWorld, [pos, Or(health, isPoisoned), Not(vel)]>(world);
+        var complexQuery = new hxbitecs.QueryMacro<MyQueryWorld,
+            [pos, Or(health, isPoisoned), Not(vel)]>(world);
 
         var entityCount = 0;
         var foundEntityIds = [];
@@ -116,8 +113,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testAnyAlias() {
-        var posAnyVel:hxbitecs.QueryMacro<MyQueryWorld, [Any(pos, vel)]>;
-        posAnyVel = new hxbitecs.QueryMacro<MyQueryWorld, [Any(pos, vel)]>(world);
+        var posAnyVel = new hxbitecs.QueryMacro<MyQueryWorld, [Any(pos, vel)]>(world);
 
         var entityCount = 0;
         for (e in posAnyVel) {
@@ -129,8 +125,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testNoneAlias() {
-        var noneVelHealth:hxbitecs.QueryMacro<MyQueryWorld, [pos, None(vel, health)]>;
-        noneVelHealth = new hxbitecs.QueryMacro<MyQueryWorld, [pos, None(vel, health)]>(world);
+        var noneVelHealth = new hxbitecs.QueryMacro<MyQueryWorld, [pos, None(vel, health)]>(world);
 
         var entityCount = 0;
         var foundEntityIds = [];
@@ -145,6 +140,65 @@ class TestQueryMacro extends Test {
         // Intersection: 1, 5, 7
         Assert.equals(3, entityCount);
         Assert.same([1, 5, 7], foundEntityIds);
+    }
+
+    public function testEntityAccessor() {
+        // Test EntityAccessor with pos component
+        var entityPos = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [pos]>(world, 1);
+
+        Assert.equals(1, entityPos.eid);
+        Assert.equals(10.0, entityPos.pos.x);
+        Assert.equals(5.0, entityPos.pos.y);
+
+        // Test EntityAccessor with pos and vel components for even entity
+        var entityPosVel:hxbitecs.EntityAccessorMacro<MyQueryWorld, [pos, vel]>;
+        entityPosVel = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [pos, vel]>(world, 2);
+
+        Assert.equals(2, entityPosVel.eid);
+        Assert.equals(20.0, entityPosVel.pos.x);
+        Assert.equals(10.0, entityPosVel.pos.y);
+        Assert.equals(3.0, entityPosVel.vel.x);
+        Assert.equals(6.0, entityPosVel.vel.y);
+    }
+
+    public function testEntityAccessorModification() {
+        // Test modifying components through EntityAccessor
+        var entity = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [pos, vel]>(world, 4);
+
+        // Store original values
+        var originalPosX = entity.pos.x; // Should be 40.0
+        var originalVelX = entity.vel.x; // Should be 5.0
+
+        Assert.equals(40.0, originalPosX);
+        Assert.equals(5.0, originalVelX);
+
+        // Modify the position using velocity
+        entity.pos.x += entity.vel.x;
+        entity.pos.y += entity.vel.y;
+
+        // Verify changes
+        Assert.equals(45.0, entity.pos.x);
+        Assert.equals(30.0, entity.pos.y);
+    }
+
+    public function testEntityAccessorWithHealth() {
+        // Test EntityAccessor with AoS component (health)
+        var entityHealth = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [health]>(world, 3);
+
+        Assert.equals(3, entityHealth.eid);
+        Assert.equals(130, entityHealth.health.hp);
+
+        // Test modifying health
+        entityHealth.health.hp = 150;
+        Assert.equals(150, entityHealth.health.hp);
+    }
+
+    public function testEntityAccessorWithTag() {
+        // Test EntityAccessor with tag component (isPoisoned)
+        var entityPoisoned = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [isPoisoned]>(world, 5);
+
+        Assert.equals(5, entityPoisoned.eid);
+        // Tag components don't have properties, just existence
     }
 
 }
