@@ -53,6 +53,100 @@ class TestQueryMacro extends Test {
         }
     }
 
+    public function testOrOperator() {
+        var posOrVel:hxbitecs.QueryMacro<MyQueryWorld, [Or(pos, vel)]>;
+        posOrVel = new hxbitecs.QueryMacro<MyQueryWorld, [Or(pos, vel)]>(world);
+
+        var entityCount = 0;
+        for (e in posOrVel) {
+            entityCount++;
+        }
+
+        // All entities have pos, even entities have vel, so should get all 10 entities
+        Assert.equals(10, entityCount);
+    }
+
+    public function testNotOperator() {
+        var posNotVel:hxbitecs.QueryMacro<MyQueryWorld, [pos, Not(vel)]>;
+        posNotVel = new hxbitecs.QueryMacro<MyQueryWorld, [pos, Not(vel)]>(world);
+
+        var entityCount = 0;
+        var oddEntityIds = [];
+        for (e in posNotVel) {
+            oddEntityIds.push(e.eid);
+            entityCount++;
+        }
+
+        // Odd entities don't have vel, so should get 5 entities (1, 3, 5, 7, 9)
+        Assert.equals(5, entityCount);
+        Assert.same([1, 3, 5, 7, 9], oddEntityIds);
+    }
+
+    public function testAndOperator() {
+        var posAndVel:hxbitecs.QueryMacro<MyQueryWorld, [And(pos, vel)]>;
+        posAndVel = new hxbitecs.QueryMacro<MyQueryWorld, [And(pos, vel)]>(world);
+
+        var entityCount = 0;
+        for (e in posAndVel) {
+            entityCount++;
+        }
+
+        // Even entities have both pos and vel, so should get 5 entities
+        Assert.equals(5, entityCount);
+    }
+
+    public function testComplexQuery() {
+        var complexQuery:hxbitecs.QueryMacro<MyQueryWorld, [pos, Or(health, isPoisoned), Not(vel)]>;
+        complexQuery = new hxbitecs.QueryMacro<MyQueryWorld, [pos, Or(health, isPoisoned), Not(vel)]>(world);
+
+        var entityCount = 0;
+        var foundEntityIds = [];
+        for (e in complexQuery) {
+            foundEntityIds.push(e.eid);
+            entityCount++;
+        }
+
+        // Need entities with:
+        // - pos (all have it)
+        // - health (entities 3, 6, 9) OR isPoisoned (entities 5, 10)
+        // - NOT vel (odd entities: 1, 3, 5, 7, 9)
+        // Intersection: entities 3, 5, 9
+        Assert.equals(3, entityCount);
+        Assert.same([3, 5, 9], foundEntityIds);
+    }
+
+    public function testAnyAlias() {
+        var posAnyVel:hxbitecs.QueryMacro<MyQueryWorld, [Any(pos, vel)]>;
+        posAnyVel = new hxbitecs.QueryMacro<MyQueryWorld, [Any(pos, vel)]>(world);
+
+        var entityCount = 0;
+        for (e in posAnyVel) {
+            entityCount++;
+        }
+
+        // Any(pos, vel) should be same as Or(pos, vel)
+        Assert.equals(10, entityCount);
+    }
+
+    public function testNoneAlias() {
+        var noneVelHealth:hxbitecs.QueryMacro<MyQueryWorld, [pos, None(vel, health)]>;
+        noneVelHealth = new hxbitecs.QueryMacro<MyQueryWorld, [pos, None(vel, health)]>(world);
+
+        var entityCount = 0;
+        var foundEntityIds = [];
+        for (e in noneVelHealth) {
+            foundEntityIds.push(e.eid);
+            entityCount++;
+        }
+
+        // Need entities with pos and neither vel nor health
+        // Entities without vel: 1, 3, 5, 7, 9
+        // Entities without health: all except 3, 6, 9
+        // Intersection: 1, 5, 7
+        Assert.equals(3, entityCount);
+        Assert.same([1, 5, 7], foundEntityIds);
+    }
+
 }
 
 @:publicFields class MyQueryWorld {

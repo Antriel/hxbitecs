@@ -15,32 +15,111 @@ typedef TermInfo = {
 
 }
 
-function parseTerms(worldType:Type, termsType:Type):Array<TermInfo> {
-    var termNames = getTermFields(termsType);
-    var termInfos:Array<TermInfo> = [];
+typedef QueryTermInfo = {
 
-    for (name in termNames) {
-        var componentType = getWorldComponentType(worldType, name);
-        termInfos.push({
-            name: name,
-            componentType: componentType
-        });
-    }
+    // All unique components collected from the query terms
+    allComponents:Array<TermInfo>,
+    // The parsed query terms as expressions for bitECS
+    queryExprs:Array<Expr>,
+    // Unique identifier based on query structure
+    structureId:String
 
-    return termInfos;
 }
 
-function getTermFields(terms:Type):Array<String> {
+function parseTerms(worldType:Type, termsType:Type):QueryTermInfo {
+    var termExprs = getTermExpressions(termsType);
+    var allComponents:Array<TermInfo> = [];
+    var queryExprs:Array<Expr> = [];
+
+    for (expr in termExprs) {
+        var parsed = parseQueryTerm(worldType, expr, allComponents);
+        queryExprs.push(parsed);
+    }
+
+    var structureId = generateStructureId(termExprs);
+
+    return {
+        allComponents: allComponents,
+        queryExprs: queryExprs,
+        structureId: structureId
+    };
+}
+
+function getTermExpressions(terms:Type):Array<Expr> {
     return switch terms {
         case TInst(_.get().kind => KExpr({ expr: EArrayDecl(values) }), _):
-            var fields = [];
-            for (v in values) switch v.expr {
-                case EConst(CIdent(s)): fields.push(s);
-                case _: Context.error('Unsupported term type: $v', v.pos);
-            }
-            fields;
+            values;
         case _:
             Context.error('Expected TInst(KExpr(EArrayDecl())) for terms, got: $terms', Context.currentPos());
+    }
+}
+
+function parseQueryTerm(worldType:Type, expr:Expr, allComponents:Array<TermInfo>):Expr {
+    return switch expr.expr {
+        // Simple component reference: pos, vel, health
+        case EConst(CIdent(componentName)):
+            collectComponent(worldType, componentName, allComponents);
+            macro world.$componentName;
+
+        // Operator calls: Or(pos, vel), Not(health), And(pos, vel)
+        case ECall({ expr: EConst(CIdent(op)) }, args) if (isQueryOperator(op)):
+            var parsedArgs = [];
+            for (arg in args) {
+                parsedArgs.push(parseQueryTerm(worldType, arg, allComponents));
+            }
+            var opExpr = switch op {
+                case "Or": macro bitecs.Bitecs.Or;
+                case "And": macro bitecs.Bitecs.And;
+                case "Not": macro bitecs.Bitecs.Not;
+                case "Any": macro bitecs.Bitecs.Any;
+                case "All": macro bitecs.Bitecs.All;
+                case "None": macro bitecs.Bitecs.None;
+                case _: Context.error('Unsupported query operator: $op', expr.pos);
+            }
+            { expr: ECall(opExpr, parsedArgs), pos: expr.pos };
+
+        case _:
+            Context.error('Unsupported query term: ${expr.expr}', expr.pos);
+    }
+}
+
+function isQueryOperator(op:String):Bool {
+    return switch op {
+        case "Or" | "And" | "Not" | "Any" | "All" | "None": true;
+        case _: false;
+    }
+}
+
+function collectComponent(worldType:Type, componentName:String, allComponents:Array<TermInfo>):Void {
+    // Check if component already collected
+    for (comp in allComponents) {
+        if (comp.name == componentName) return;
+    }
+    var componentType = getWorldComponentType(worldType, componentName);
+    allComponents.push({
+        name: componentName,
+        componentType: componentType
+    });
+}
+
+function generateStructureId(termExprs:Array<Expr>):String {
+    var parts:Array<String> = [];
+
+    for (expr in termExprs) {
+        parts.push(exprToIdString(expr));
+    }
+
+    return parts.join('_');
+}
+function exprToIdString(expr:Expr):String {
+    return switch expr.expr {
+        case EConst(CIdent(name)):
+            name;
+        case ECall({ expr: EConst(CIdent(op)) }, args):
+            var argStrs = [for (arg in args) exprToIdString(arg)];
+            op + '_' + argStrs.join('_');
+        case _:
+            'Unknown';
     }
 }
 

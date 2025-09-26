@@ -15,34 +15,32 @@ function build() {
     return switch Context.getLocalType() {
         case TInst(_, [target, terms]):
             var baseName = MacroUtils.getBaseName(target);
-            var termInfos = TermUtils.parseTerms(target, terms);
-            var termFields = [for (term in termInfos) term.name];
-            var name = 'Query${baseName}_${termFields.join('_')}';
+            var queryTermInfo = TermUtils.parseTerms(target, terms);
+            var name = 'Query${baseName}_${queryTermInfo.structureId}';
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
-            return MacroUtils.buildGenericType(name, ct, () -> generateQuery(name, target, terms, termInfos));
+            return MacroUtils.buildGenericType(name, ct, () ->
+                generateQuery(name, target, terms, queryTermInfo));
         case _:
             Context.error("QueryMacro requires exactly one type parameter", Context.currentPos());
     }
 }
 
 function generateQuery(name:String, target:Type, terms:Type,
-        termInfos:Array<TermUtils.TermInfo>):Array<TypeDefinition> {
+        queryTermInfo:TermUtils.QueryTermInfo):Array<TypeDefinition> {
     final pos = Context.currentPos();
 
     var queryFields:Array<Field> = [];
     var constructorArgs = [{ name: "world", type: TypeTools.toComplexType(target) }];
-    var worldComponentsExpr = [for (termInfo in termInfos) {
-        final name = termInfo.name;
-        macro world.$name;
-    }];
+    // Use the parsed query expressions instead of simple component references
+    var queryTermsExpr = queryTermInfo.queryExprs;
 
     var constructor:Field = {
         name: "new",
         kind: FFun({
             args: constructorArgs,
             expr: macro {
-                this = bitecs.Bitecs.registerQuery(world, $a{worldComponentsExpr});
+                this = bitecs.Bitecs.registerQuery(world, $a{queryTermsExpr});
             }
         }),
         pos: pos,

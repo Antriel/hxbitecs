@@ -15,12 +15,12 @@ function build() {
     return switch Context.getLocalType() {
         case TInst(_, [world, terms]):
             var baseName = MacroUtils.getBaseName(world);
-            var termInfos = TermUtils.parseTerms(world, terms);
-            var termFields = [for (term in termInfos) term.name];
-            var name = 'EntityWrapper${baseName}_${termFields.join('_')}';
+            var queryTermInfo = TermUtils.parseTerms(world, terms);
+            var name = 'EntityWrapper${baseName}_${queryTermInfo.structureId}';
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
-            return MacroUtils.buildGenericType(name, ct, () -> generateWrapper(name, world, termInfos));
+            return MacroUtils.buildGenericType(name, ct, () ->
+                generateWrapper(name, world, queryTermInfo.allComponents));
         case _:
             Context.error("EntityWrapperMacro requires exactly two type parameters", Context.currentPos());
     }
