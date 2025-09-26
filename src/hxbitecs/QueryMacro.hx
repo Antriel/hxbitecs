@@ -15,37 +15,27 @@ function build() {
     return switch Context.getLocalType() {
         case TInst(_, [target, terms]):
             var baseName = MacroUtils.getBaseName(target);
-            var termFields = getTermFields(terms);
+            var termInfos = TermUtils.parseTerms(target, terms);
+            var termFields = [for (term in termInfos) term.name];
             var name = 'Query${baseName}_${termFields.join('_')}';
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
-            return MacroUtils.buildGenericType(name, ct, () ->
-                generateQuery(name, target, terms, termFields));
+            return MacroUtils.buildGenericType(name, ct, () -> generateQuery(name, target, terms, termInfos));
         case _:
             Context.error("QueryMacro requires exactly one type parameter", Context.currentPos());
     }
 }
 
-function getTermFields(terms:Type):Array<String> {
-    return switch terms {
-        case TInst(_.get().kind => KExpr({ expr: EArrayDecl(values) }), _):
-            var fields = [];
-            for (v in values) switch v.expr {
-                case EConst(CIdent(s)): fields.push(s);
-                case _: Context.error('Unsupported term type: $v', v.pos);
-            }
-            fields;
-        case _:
-            Context.error('Expected TInst(KExpr(EArrayDecl())) for terms, got: $terms', Context.currentPos());
-    }
-}
-
-function generateQuery(name:String, target:Type, terms:Type, termFields:Array<String>):Array<TypeDefinition> {
+function generateQuery(name:String, target:Type, terms:Type,
+        termInfos:Array<TermUtils.TermInfo>):Array<TypeDefinition> {
     final pos = Context.currentPos();
 
     var queryFields:Array<Field> = [];
     var constructorArgs = [{ name: "world", type: TypeTools.toComplexType(target) }];
-    var worldComponentsExpr = [for (field in termFields) macro world.$field];
+    var worldComponentsExpr = [for (termInfo in termInfos) {
+        final name = termInfo.name;
+        macro world.$name;
+    }];
 
     var constructor:Field = {
         name: "new",
@@ -56,7 +46,7 @@ function generateQuery(name:String, target:Type, terms:Type, termFields:Array<St
             }
         }),
         pos: pos,
-        access: [APublic]
+        access: [APublic, AInline]
     };
     queryFields.push(constructor);
 

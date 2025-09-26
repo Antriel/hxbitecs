@@ -15,33 +15,55 @@ function build() {
     return switch Context.getLocalType() {
         case TInst(_, [world, terms]):
             var baseName = MacroUtils.getBaseName(world);
-            var termFields = getTermFields(terms);
+            var termInfos = TermUtils.parseTerms(world, terms);
+            var termFields = [for (term in termInfos) term.name];
             var name = 'CompWrapper${baseName}_${termFields.join('_')}';
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
-            return MacroUtils.buildGenericType(name, ct, () -> generateWrapper(name, world, termFields));
+            return MacroUtils.buildGenericType(name, ct, () -> generateWrapper(name, world, termInfos));
         case _:
             Context.error("CompWrapperMacro requires exactly two type parameters", Context.currentPos());
     }
 }
 
-function getTermFields(terms:Type):Array<String> {
-    return switch terms {
-        case TInst(_.get().kind => KExpr({ expr: EArrayDecl(values) }), _):
-            var fields = [];
-            for (v in values) switch v.expr {
-                case EConst(CIdent(s)): fields.push(s);
-                case _: Context.error('Unsupported term type: $v', v.pos);
-            }
-            fields;
-        case _:
-            Context.error('Expected TInst(KExpr(EArrayDecl())) for terms, got: $terms', Context.currentPos());
-    }
-}
-
-function generateWrapper(name:String, world:Type, termFields:Array<String>):Array<TypeDefinition> {
+function generateWrapper(name:String, world:Type, termInfos:Array<TermUtils.TermInfo>):Array<TypeDefinition> {
     final pos = Context.currentPos();
 
+    // Determine wrapper types for each component without generating them
+    var componentWrappers:Array<{name:String, wrapperType:ComplexType, pattern:MacroUtils.ComponentPattern}> = [];
+
+    for (termInfo in termInfos) {
+        var pattern = MacroUtils.analyzeComponentType(termInfo.componentType);
+        var wrapperType:ComplexType;
+
+        switch pattern {
+            case SoA(_):
+                wrapperType = TPath({
+                    pack: ['hxbitecs'],
+                    name: 'SoAWrapperMacro',
+                    params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
+                });
+            case AoS(_):
+                wrapperType = TPath({
+                    pack: ['hxbitecs'],
+                    name: 'AoSWrapperMacro',
+                    params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
+                });
+            case Tag:
+                wrapperType = TPath({
+                    pack: ['hxbitecs'],
+                    name: 'TagWrapperMacro',
+                    params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
+                });
+        }
+        componentWrappers.push({
+            name: termInfo.name,
+            wrapperType: wrapperType,
+            pattern: pattern
+        });
+    }
+
+    // Generate the main wrapper class
     var wrapperFields:Array<Field> = [];
 
     // Basic fields
@@ -59,16 +81,14 @@ function generateWrapper(name:String, world:Type, termFields:Array<String>):Arra
         access: [APublic, AFinal]
     });
 
-    // Component field accessors - mock for now
-    var componentIndex = 0;
-    for (field in termFields) {
+    // Component field accessors - using generic wrapper types
+    for (wrapper in componentWrappers) {
         wrapperFields.push({
-            name: field,
-            kind: FVar(TPath({ pack: [], name: 'Dynamic' })), // Mock - will be proper wrapper later
+            name: wrapper.name,
+            kind: FVar(wrapper.wrapperType),
             pos: pos,
             access: [APublic, AFinal]
         });
-        componentIndex++;
     }
 
     // Constructor
@@ -77,10 +97,26 @@ function generateWrapper(name:String, world:Type, termFields:Array<String>):Arra
         macro this.query = query
     ];
 
-    componentIndex = 0;
-    for (field in termFields) {
+    var componentIndex = 0;
+    for (wrapper in componentWrappers) {
         var index = macro $v{componentIndex};
-        wrapperConstructorExprs.push(macro this.$field = query.allComponents[$index]); // Mock assignment
+        final wrapperName = wrapper.name;
+        var wrapperTypePath = switch wrapper.wrapperType {
+            case TPath(p): p;
+            case _: Context.error('Unexpected wrapper type for $wrapperName', pos);
+        }
+
+        switch wrapper.pattern {
+            case SoA(_) | AoS(_):
+                // For SoA and AoS, create wrapper with store and eid
+                wrapperConstructorExprs.push(macro this.$wrapperName = new $wrapperTypePath({
+                    store: query.allComponents[$index],
+                    eid: eid
+                }));
+            case Tag:
+                // For tag components, just pass the eid
+                wrapperConstructorExprs.push(macro this.$wrapperName = new $wrapperTypePath(eid));
+        }
         componentIndex++;
     }
 
@@ -105,6 +141,7 @@ function generateWrapper(name:String, world:Type, termFields:Array<String>):Arra
         kind: TDClass(),
         fields: wrapperFields
     };
+
     trace(new haxe.macro.Printer().printTypeDefinition(wrapperDef));
     return [wrapperDef];
 }

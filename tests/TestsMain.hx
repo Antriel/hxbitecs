@@ -4,6 +4,7 @@ function main() {
     runner.addCases('behaviors'); // Testing how bitECS behaves in certain scenarios.
     runner.addCases('hardcoded'); // Manually written code that macros are meant to generate.
     runner.addCase(new macros.TestStoreMacro());
+    runner.addCase(new macros.TestQueryMacro());
     utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
     runner.run();
 }
