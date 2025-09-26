@@ -8,48 +8,19 @@ import haxe.macro.TypeTools;
 #end
 
 #if !macro
-@:genericBuild(hxbitecs.SoA.build()) class SoA<T> {}
-#else 
-@:persistent private var generated = new Map<String, Bool>();
+@:genericBuild(hxbitecs.SoA.build()) class SoA<T> { }
 
+#else
 function build() {
     return switch Context.getLocalType() {
         case TInst(_, [target]):
-            var baseName = getBaseName(target);
+            var baseName = MacroUtils.getBaseName(target);
             var name = 'SoA' + baseName;
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
-            if (generated.exists(name)) {
-                if (isAlive(ct, Context.currentPos())) {
-                    // Sys.println('Reusing previously generated type for $name.');
-                    return ct;
-                }
-                // Sys.println('Previously generated type for $name has been discarded.');
-            }
-
-            // Sys.println('Generating type for $name.');
-            final td = generateSoA(target);
-            td.name = name;
-            // trace(new haxe.macro.Printer().printTypeDefinition(td));
-            Context.defineType(td);
-            generated.set(name, true);
-            return ct;
+            return MacroUtils.buildGenericType(name, ct, () -> generateSoA(target));
         case _:
             Context.error("SoA requires exactly one type parameter", Context.currentPos());
-    }
-}
-
-function isAlive(ct:ComplexType, pos:Position):Bool {
-    return try Context.resolveType(ct, pos) != null catch (e) false;
-}
-
-function getBaseName(type:Type):String {
-    return switch type {
-        case TType(t, _): t.get().name;
-        case TAnonymous(a):
-            "Anon_" + 
-            haxe.macro.PositionTools.toLocation(Context.currentPos()).range.start.line;
-        case _: Context.error('Unsupported type $type for SoA', Context.currentPos());
     }
 }
 
@@ -114,5 +85,4 @@ function generateSoA(target:Type):TypeDefinition {
         fields: [constructor]
     };
 }
-
 #end
