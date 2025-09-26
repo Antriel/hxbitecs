@@ -18,7 +18,7 @@ function build() {
             var name = 'SoA' + baseName;
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
-            return MacroUtils.buildGenericType(name, ct, () -> generateSoA(target));
+            return MacroUtils.buildGenericType(name, ct, () -> generateSoA(name, target));
         case _:
             Context.error("SoA requires exactly one type parameter", Context.currentPos());
     }
@@ -37,7 +37,7 @@ function toSoA(field:ClassField):Field {
     }
 }
 
-function generateSoA(target:Type):TypeDefinition {
+function generateSoA(name:String, target:Type):Array<TypeDefinition> {
     final pos = Context.currentPos();
     var structFields = [];
 
@@ -76,13 +76,13 @@ function generateSoA(target:Type):TypeDefinition {
         access: [APublic, AInline]
     };
 
-    return {
-        name: null,
+    return [{
+        name: name,
         pack: ['hxbitecs'],
         pos: pos,
         kind: TDAbstract(structType),
         meta: [{ name: ":forward", pos: pos }],
         fields: [constructor]
-    };
+    }];
 }
 #end

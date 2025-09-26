@@ -15,29 +15,37 @@ function build() {
     return switch Context.getLocalType() {
         case TInst(_, [target, terms]):
             var baseName = MacroUtils.getBaseName(target);
-            // TODO add `terms` to the name too.
-            var name = 'Query' + baseName;
+            var termFields = getTermFields(terms);
+            var name = 'Query${baseName}_${termFields.join('_')}';
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
-            return MacroUtils.buildGenericType(name, ct, () -> generateQuery(target));
+            return MacroUtils.buildGenericType(name, ct, () -> generateQuery(name, target, termFields));
         case _:
             Context.error("QueryMacro requires exactly one type parameter", Context.currentPos());
     }
 }
 
-function generateQuery(target:Type):TypeDefinition {
+function getTermFields(terms:Type):Array<String> {
+    return switch terms {
+        case TInst(_.get().kind => KExpr({ expr: EArrayDecl(values) }), _):
+            var fields = [];
+            for (v in values) switch v.expr {
+                case EConst(CIdent(s)): fields.push(s);
+                case _: Context.error('Unsupported term type: $v', v.pos);
+            }
+            fields;
+        case _:
+            Context.error('Expected TInst(KExpr(EArrayDecl())) for terms, got: $terms', Context.currentPos());
+    }
+}
+
+function generateQuery(name:String, target:Type, termFields:Array<String>):Array<TypeDefinition> {
     final pos = Context.currentPos();
 
-    var baseName = MacroUtils.getBaseName(target);
-    var queryName = 'Query' + baseName;
-    var wrapperName = queryName + 'Wrapper';
-
-    var targetFields = MacroUtils.getTypeFields(target);
-
+    var wrapperName = name + 'Wrapper';
     var queryFields:Array<Field> = [];
-
     var constructorArgs = [{ name: "world", type: TypeTools.toComplexType(target) }];
-    var worldComponentsExpr = [for (field in targetFields) macro world.$field];
+    var worldComponentsExpr = [for (field in termFields) macro world.$field];
 
     var constructor:Field = {
         name: "new",
@@ -72,7 +80,7 @@ function generateQuery(target:Type):TypeDefinition {
     queryFields.push(iteratorMethod);
 
     var queryDef:TypeDefinition = {
-        name: queryName,
+        name: name,
         pack: ['hxbitecs'],
         pos: pos,
         kind: TDAbstract(TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' })),
@@ -99,7 +107,7 @@ function generateQuery(target:Type):TypeDefinition {
 
     // Component field accessors - mock for now
     var componentIndex = 0;
-    for (field in targetFields) {
+    for (field in termFields) {
         wrapperFields.push({
             name: field,
             kind: FVar(TPath({ pack: [], name: 'Dynamic' })), // Mock - will be proper wrapper later
@@ -116,7 +124,7 @@ function generateQuery(target:Type):TypeDefinition {
     ];
 
     componentIndex = 0;
-    for (field in targetFields) {
+    for (field in termFields) {
         var index = macro $v{componentIndex};
         wrapperConstructorExprs.push(macro this.$field = query.allComponents[$index]); // Mock assignment
         componentIndex++;
@@ -144,12 +152,9 @@ function generateQuery(target:Type):TypeDefinition {
         fields: wrapperFields
     };
 
-    // Register all generated types
-    Context.defineType(wrapperDef);
-
     // trace(new haxe.macro.Printer().printTypeDefinition(queryDef));
     // trace(new haxe.macro.Printer().printTypeDefinition(wrapperDef));
 
-    return queryDef;
+    return [queryDef, wrapperDef];
 }
 #end

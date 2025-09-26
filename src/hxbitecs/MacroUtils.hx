@@ -47,16 +47,15 @@ function getTypeFields(type:Type):Array<String> {
     }
 }
 
-function buildGenericType(name:String, ct:ComplexType, generator:() -> TypeDefinition):ComplexType {
+function buildGenericType(name:String, ct:ComplexType, generator:() -> Array<TypeDefinition>):ComplexType {
     if (isGenerated(name)) {
         if (isAlive(ct, Context.currentPos())) {
             return ct;
         }
     }
 
-    final td = generator();
-    td.name = name;
-    Context.defineType(td);
+    final types = generator();
+    Context.defineModule('hxbitecs.$name', types);
     setGenerated(name);
     return ct;
 }
