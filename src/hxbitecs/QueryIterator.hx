@@ -3,7 +3,7 @@ package hxbitecs;
 import bitecs.core.query.Query;
 
 @:generic class QueryIterator<T:haxe.Constraints.Constructible<Int->Query->Void>> {
-    var query:Query;
+    final query:Query;
     var i:Int = 0;
 
     public inline function new(query:Query) {

@@ -201,6 +201,54 @@ class TestQueryMacro extends Test {
         // Tag components don't have properties, just existence
     }
 
+    public function testAdHocQuery() {
+        // Test the new ad-hoc query syntax using hxbitecs.Query.query()
+        for (e in hxbitecs.Query.query(world, [pos, vel])) {
+            e.pos.x += e.vel.x;
+            e.pos.y += e.vel.y;
+        }
+
+        // Verify results are same as existing QueryMacro approach
+        var entityCount = 0;
+        for (e in hxbitecs.Query.query(world, [pos, vel])) {
+            entityCount++;
+            Assert.equals((e.eid * 10.0) + (e.eid + 1.0), e.pos.x);
+            Assert.equals((e.eid * 5.0) + ((e.eid + 1.0) * 2.0), e.pos.y);
+        }
+        Assert.equals(5, entityCount);
+    }
+
+    public function testAdHocQueryOperators() {
+        // Test Or operator with ad-hoc query
+        var entityCount = 0;
+        for (e in hxbitecs.Query.query(world, [Or(pos, vel)])) {
+            entityCount++;
+        }
+        Assert.equals(10, entityCount);
+
+        // Test Not operator with ad-hoc query
+        entityCount = 0;
+        var oddEntityIds = [];
+        for (e in hxbitecs.Query.query(world, [pos, Not(vel)])) {
+            oddEntityIds.push(e.eid);
+            entityCount++;
+        }
+        Assert.equals(5, entityCount);
+        Assert.same([1, 3, 5, 7, 9], oddEntityIds);
+    }
+
+    public function testAdHocQueryComplexOperators() {
+        // Test complex ad-hoc query with multiple operators
+        var entityCount = 0;
+        var foundEntityIds = [];
+        for (e in hxbitecs.Query.query(world, [pos, Or(health, isPoisoned), Not(vel)])) {
+            foundEntityIds.push(e.eid);
+            entityCount++;
+        }
+        Assert.equals(3, entityCount);
+        Assert.same([3, 5, 9], foundEntityIds);
+    }
+
 }
 
 @:publicFields class MyQueryWorld {
