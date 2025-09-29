@@ -55,11 +55,19 @@ function generateEntityComponentInfo(termInfos:Array<TermUtils.TermInfo>):Array<
 
     for (termInfo in termInfos) {
         var pattern = MacroUtils.analyzeComponentType(termInfo.componentType);
-        var wrapperType:ComplexType = TPath({
-            pack: ['hxbitecs'],
-            name: 'ComponentWrapperMacro',
-            params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
-        });
+
+        var wrapperType:ComplexType = switch pattern {
+            case SimpleArray(_):
+                // For SimpleArray, use raw array type since we store it directly
+                TypeTools.toComplexType(termInfo.componentType);
+            case SoA(_) | AoS(_) | Tag:
+                // For other patterns, use ComponentWrapperMacro
+                TPath({
+                    pack: ['hxbitecs'],
+                    name: 'ComponentWrapperMacro',
+                    params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
+                });
+        };
 
         componentWrappers.push({
             name: termInfo.name,
@@ -166,13 +174,50 @@ function generateComponentFields(componentWrappers:Array<EntityComponentInfo>):A
     var pos = Context.currentPos();
 
     for (wrapper in componentWrappers) {
-        // All component fields are public final - no need for getters
-        fields.push({
-            name: wrapper.name,
-            kind: FVar(wrapper.wrapperType),
-            pos: pos,
-            access: [APublic, AFinal]
-        });
+        switch wrapper.pattern {
+            case SimpleArray(elementType):
+                // For SimpleArray, generate properties with get/set directly on entity
+                // The get/set methods will access stored array references
+                var elementComplexType = TypeTools.toComplexType(elementType);
+                var storeName = '${wrapper.name}Store';
+
+                // Private storage field for the array reference (raw array type)
+                var arrayType = TPath({
+                    pack: [],
+                    name: "Array",
+                    params: [TPType(elementComplexType)]
+                });
+                fields.push({
+                    name: storeName,
+                    kind: FVar(arrayType),
+                    pos: pos,
+                    access: [APrivate, AFinal]
+                });
+
+                // Property with get/set methods
+                var accessExprs = MacroUtils.generateSimpleArrayAccessExprs(
+                    { expr: EConst(CIdent(storeName)), pos: pos },
+                    { expr: EConst(CIdent("eid")), pos: pos }
+                );
+
+                var propFields = MacroUtils.generatePropertyWithGetSet(
+                    wrapper.name,
+                    elementComplexType,
+                    accessExprs.get,
+                    accessExprs.set
+                );
+
+                fields = fields.concat(propFields);
+
+            case SoA(_) | AoS(_) | Tag:
+                // For other patterns, keep existing approach with wrapper fields
+                fields.push({
+                    name: wrapper.name,
+                    kind: FVar(wrapper.wrapperType),
+                    pos: pos,
+                    access: [APublic, AFinal]
+                });
+        }
     }
 
     return fields;
@@ -206,12 +251,14 @@ function generateComponentConstructorExprs(componentWrappers:Array<EntityCompone
                         }));
                 }
             case SimpleArray(_):
+                // For SimpleArray, store direct array reference (not wrapper instance)
+                var storeName = '${fieldName}Store';
                 switch classType {
                     case Accessor:
-                        constructorExprs.push(macro this.$fieldName = new $wrapperTypePath(world.$fieldName));
+                        constructorExprs.push(macro this.$storeName = world.$fieldName);
                     case Wrapper:
                         var index = macro $v{componentIndex};
-                        constructorExprs.push(macro this.$fieldName = new $wrapperTypePath(query.allComponents[$index]));
+                        constructorExprs.push(macro this.$storeName = query.allComponents[$index]);
                 }
             case Tag:
                 constructorExprs.push(macro this.$fieldName = new $wrapperTypePath(eid));

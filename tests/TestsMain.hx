@@ -5,6 +5,7 @@ function main() {
     runner.addCases('hardcoded'); // Manually written code that macros are meant to generate.
     runner.addCase(new macros.TestStoreMacro());
     runner.addCase(new macros.TestQueryMacro());
+    runner.addCase(new macros.TestComponentAccess());
     utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
     runner.run();
 }

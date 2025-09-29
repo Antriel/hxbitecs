@@ -24,6 +24,7 @@ function getBaseName(type:Type):String {
     return switch type {
         case TType(t, _): t.get().name;
         case TInst(t, _): t.get().name;
+        case TAbstract(t, _): t.get().name; // Handle primitive types like Int, Float, Bool, etc.
         case TAnonymous(a): [for (f in a.get().fields) f.name].join('_');
         case _: Context.error('Unsupported type $type for `getBaseName`.', Context.currentPos());
     }
@@ -168,6 +169,54 @@ function getTypedArrayElementType(typeName:String):Type {
         case _:
             Context.error('Unknown typed array: $typeName', Context.currentPos());
     }
+}
+
+function generatePropertyWithGetSet(propertyName:String, propertyType:ComplexType,
+        getterExpr:Expr, setterExpr:Expr):Array<Field> {
+    var pos = Context.currentPos();
+    var fields:Array<Field> = [];
+
+    // Property declaration
+    fields.push({
+        name: propertyName,
+        kind: FProp("get", "set", propertyType),
+        pos: pos,
+        access: [APublic]
+    });
+
+    // Getter method
+    fields.push({
+        name: 'get_$propertyName',
+        kind: FFun({
+            args: [],
+            ret: propertyType,
+            expr: { expr: EReturn(getterExpr), pos: pos }
+        }),
+        pos: pos,
+        access: [APublic, AInline]
+    });
+
+    // Setter method
+    fields.push({
+        name: 'set_$propertyName',
+        kind: FFun({
+            args: [{ name: "v", type: propertyType }],
+            ret: propertyType,
+            expr: { expr: EReturn(setterExpr), pos: pos }
+        }),
+        pos: pos,
+        access: [APublic, AInline]
+    });
+
+    return fields;
+}
+
+function generateSimpleArrayAccessExprs(arrayRef:Expr, eid:Expr):{get:Expr, set:Expr} {
+    var pos = Context.currentPos();
+    return {
+        get: { expr: EArray(arrayRef, eid), pos: pos },
+        set: { expr: EBinop(OpAssign, { expr: EArray(arrayRef, eid), pos: pos }, macro v), pos: pos }
+    };
 }
 
 #end

@@ -37,7 +37,7 @@ function build() {
                     var fields = extractAoSFields(elementType);
                     generateStoreWrapper(name, componentType, fields, generateAoSAccess);
                 case SimpleArray(elementType):
-                    generateSimpleArrayWrapper(name, componentType, elementType);
+                    throw "Should be handled at entity level";
                 case Tag:
                     generateTagWrapper(name, componentType);
             });
@@ -142,35 +142,6 @@ function generateStoreWrapper(name:String, componentType:Type, fields:Array<{nam
     }
 
     return [createWrapperTypeDefinition(name, underlyingType, wrapperFields)];
-}
-
-function generateSimpleArrayWrapper(name:String, componentType:Type, elementType:Type):Array<TypeDefinition> {
-    var pos = Context.currentPos();
-    var elementComplexType = TypeTools.toComplexType(elementType);
-
-    // Simple arrays can be accessed directly, no wrapper needed - just forward to the array
-    var wrapperFields:Array<Field> = [];
-
-    // Constructor
-    wrapperFields.push({
-        name: "new",
-        kind: FFun({
-            args: [{ name: "store", type: TypeTools.toComplexType(componentType) }],
-            ret: null,
-            expr: macro this = store
-        }),
-        pos: pos,
-        access: [APublic, AInline]
-    });
-
-    return [{
-        name: name,
-        pack: ['hxbitecs'],
-        pos: pos,
-        kind: TDAbstract(TypeTools.toComplexType(componentType)),
-        meta: [{ name: ":forward", pos: pos }],
-        fields: wrapperFields
-    }];
 }
 
 function generateTagWrapper(name:String, componentType:Type):Array<TypeDefinition> {
