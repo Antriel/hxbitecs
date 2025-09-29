@@ -149,18 +149,17 @@ function getComponentFields(componentType:Type):Array<ComponentFieldInfo> {
 
 function isTypedArray(typeName:String):Bool {
     return switch typeName {
-        case "Int8Array" | "Uint8Array" | "Uint8ClampedArray" |
-             "Int16Array" | "Uint16Array" |
-             "Int32Array" | "Uint32Array" |
-             "Float32Array" | "Float64Array" |
-             "BigInt64Array" | "BigUint64Array": true;
+        case "Int8Array" | "Uint8Array" | "Uint8ClampedArray" | "Int16Array" | "Uint16Array" |
+            "Int32Array" | "Uint32Array" | "Float32Array" | "Float64Array" | "BigInt64Array" |
+            "BigUint64Array": true;
         case _: false;
     }
 }
 
 function getTypedArrayElementType(typeName:String):Type {
     return switch typeName {
-        case "Int8Array" | "Int16Array" | "Int32Array" | "Uint8Array" | "Uint16Array" | "Uint32Array" | "Uint8ClampedArray":
+        case "Int8Array" | "Int16Array" | "Int32Array" | "Uint8Array" | "Uint16Array" | "Uint32Array" |
+            "Uint8ClampedArray":
             Context.getType("Int");
         case "Float32Array" | "Float64Array":
             Context.getType("Float");
@@ -171,8 +170,8 @@ function getTypedArrayElementType(typeName:String):Type {
     }
 }
 
-function generatePropertyWithGetSet(propertyName:String, propertyType:ComplexType,
-        getterExpr:Expr, setterExpr:Expr):Array<Field> {
+function generatePropertyWithGetSet(propertyName:String, propertyType:ComplexType, getterExpr:Expr,
+        ?setterExpr:Expr):Array<Field> {
     var pos = Context.currentPos();
     var fields:Array<Field> = [];
 
@@ -196,13 +195,19 @@ function generatePropertyWithGetSet(propertyName:String, propertyType:ComplexTyp
         access: [APublic, AInline]
     });
 
-    // Setter method
+    // Setter method - if no explicit setter provided, generate from getter
+    var finalSetterExpr = if (setterExpr != null) {
+        setterExpr;
+    } else {
+        generateSetterFromGetter(getterExpr);
+    };
+
     fields.push({
         name: 'set_$propertyName',
         kind: FFun({
             args: [{ name: "v", type: propertyType }],
             ret: propertyType,
-            expr: { expr: EReturn(setterExpr), pos: pos }
+            expr: { expr: EReturn(finalSetterExpr), pos: pos }
         }),
         pos: pos,
         access: [APublic, AInline]
@@ -211,12 +216,39 @@ function generatePropertyWithGetSet(propertyName:String, propertyType:ComplexTyp
     return fields;
 }
 
-function generateSimpleArrayAccessExprs(arrayRef:Expr, eid:Expr):{get:Expr, set:Expr} {
+function generateSetterFromGetter(getterExpr:Expr):Expr {
     var pos = Context.currentPos();
-    return {
-        get: { expr: EArray(arrayRef, eid), pos: pos },
-        set: { expr: EBinop(OpAssign, { expr: EArray(arrayRef, eid), pos: pos }, macro v), pos: pos }
+    return switch getterExpr.expr {
+        case EField(obj, field):
+            { expr: EBinop(OpAssign, { expr: EField(obj, field), pos: pos }, macro v), pos: pos };
+        case EArray(obj, index):
+            { expr: EBinop(OpAssign, { expr: EArray(obj, index), pos: pos }, macro v), pos: pos };
+        case _:
+            Context.error('Unsupported getter pattern for automatic setter generation', pos);
     };
 }
 
+function generateConstructorField(args:Array<FunctionArg>, constructorExprs:Array<Expr>):Field {
+    var pos = Context.currentPos();
+    return {
+        name: "new",
+        kind: FFun({
+            args: args,
+            ret: null,
+            expr: { expr: EBlock(constructorExprs), pos: pos }
+        }),
+        pos: pos,
+        access: [APublic, AInline]
+    };
+}
+
+function generateBasicField(name:String, type:ComplexType, access:Array<Access>):Field {
+    var pos = Context.currentPos();
+    return {
+        name: name,
+        kind: FVar(type),
+        pos: pos,
+        access: access
+    };
+}
 #end

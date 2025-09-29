@@ -101,44 +101,10 @@ function generateStoreWrapper(name:String, componentType:Type, fields:Array<{nam
     for (field in fields) {
         var fieldName = field.name;
         var fieldType = TypeTools.toComplexType(field.type);
+        var getterExpr = accessGenerator(fieldName);
 
-        // Property declaration
-        wrapperFields.push({
-            name: fieldName,
-            kind: FProp("get", "set", fieldType),
-            pos: pos,
-            access: [APublic]
-        });
-
-        // Getter
-        wrapperFields.push({
-            name: 'get_$fieldName',
-            kind: FFun({
-                args: [],
-                ret: fieldType,
-                expr: { expr: EReturn(accessGenerator(fieldName)), pos: pos }
-            }),
-            pos: pos,
-            access: [APublic, AInline]
-        });
-
-        // Setter
-        var setterExpr = switch accessGenerator(fieldName).expr {
-            case EField(obj, field): { expr: EBinop(OpAssign, { expr: EField(obj, field), pos: pos }, macro v), pos: pos };
-            case EArray(obj, index): { expr: EBinop(OpAssign, { expr: EArray(obj, index), pos: pos }, macro v), pos: pos };
-            case _: Context.error('Unsupported access pattern', pos);
-        };
-
-        wrapperFields.push({
-            name: 'set_$fieldName',
-            kind: FFun({
-                args: [{ name: "v", type: fieldType }],
-                ret: fieldType,
-                expr: { expr: EReturn(setterExpr), pos: pos }
-            }),
-            pos: pos,
-            access: [APublic, AInline]
-        });
+        var propertyFields = MacroUtils.generatePropertyWithGetSet(fieldName, fieldType, getterExpr);
+        wrapperFields = wrapperFields.concat(propertyFields);
     }
 
     return [createWrapperTypeDefinition(name, underlyingType, wrapperFields)];
@@ -168,6 +134,7 @@ function generateTagWrapper(name:String, componentType:Type):Array<TypeDefinitio
         fields: wrapperFields
     }];
 }
+
 function createWrapperTypeDefinition(name:String, underlyingType:ComplexType,
         fields:Array<Field>):TypeDefinition {
     var pos = Context.currentPos();

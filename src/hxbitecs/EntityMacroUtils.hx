@@ -9,14 +9,18 @@ import haxe.macro.TypeTools;
 
 #if macro
 enum EntityClassType {
+
     Accessor; // EntityAccessor: world+eid constructor, public final component fields
-    Wrapper;  // EntityWrapper: eid+query constructor, public final component fields
+    Wrapper; // EntityWrapper: eid+query constructor, public final component fields
+
 }
 
 typedef EntityComponentInfo = {
+
     name:String,
     wrapperType:ComplexType,
     pattern:MacroUtils.ComponentPattern
+
 }
 
 function generateEntityClass(name:String, world:Type, termInfos:Array<TermUtils.TermInfo>,
@@ -79,24 +83,13 @@ function generateEntityComponentInfo(termInfos:Array<TermUtils.TermInfo>):Array<
     return componentWrappers;
 }
 
-function generateAccessorSpecificFields(world:Type, componentWrappers:Array<EntityComponentInfo>):Array<Field> {
-    var pos = Context.currentPos();
+function generateAccessorSpecificFields(world:Type,
+        componentWrappers:Array<EntityComponentInfo>):Array<Field> {
     var fields:Array<Field> = [];
 
     // Add world and eid fields
-    fields.push({
-        name: "world",
-        kind: FVar(TypeTools.toComplexType(world)),
-        pos: pos,
-        access: [APublic, AFinal]
-    });
-
-    fields.push({
-        name: "eid",
-        kind: FVar(TPath({ pack: [], name: "Int" })),
-        pos: pos,
-        access: [APublic, AFinal]
-    });
+    fields.push(MacroUtils.generateBasicField("world", TypeTools.toComplexType(world), [APublic, AFinal]));
+    fields.push(MacroUtils.generateBasicField("eid", TPath({ pack: [], name: "Int" }), [APublic, AFinal]));
 
     // Constructor
     var constructorExprs = [
@@ -107,41 +100,20 @@ function generateAccessorSpecificFields(world:Type, componentWrappers:Array<Enti
     // Add component wrapper initialization
     constructorExprs = constructorExprs.concat(generateComponentConstructorExprs(componentWrappers, Accessor));
 
-    fields.push({
-        name: "new",
-        kind: FFun({
-            args: [
-                { name: "world", type: TypeTools.toComplexType(world) },
-                { name: "eid", type: TPath({ pack: [], name: "Int" }) }
-            ],
-            ret: null,
-            expr: { expr: EBlock(constructorExprs), pos: pos }
-        }),
-        pos: pos,
-        access: [APublic, AInline]
-    });
+    fields.push(MacroUtils.generateConstructorField([
+        { name: "world", type: TypeTools.toComplexType(world) },
+        { name: "eid", type: TPath({ pack: [], name: "Int" }) }
+    ], constructorExprs));
 
     return fields;
 }
 
 function generateWrapperSpecificFields(componentWrappers:Array<EntityComponentInfo>):Array<Field> {
-    var pos = Context.currentPos();
     var fields:Array<Field> = [];
 
     // Add query and eid fields
-    fields.push({
-        name: "query",
-        kind: FVar(TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' })),
-        pos: pos,
-        access: [APublic, AFinal]
-    });
-
-    fields.push({
-        name: "eid",
-        kind: FVar(TPath({ pack: [], name: 'Int' })),
-        pos: pos,
-        access: [APublic, AFinal]
-    });
+    fields.push(MacroUtils.generateBasicField("query", TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' }), [APublic, AFinal]));
+    fields.push(MacroUtils.generateBasicField("eid", TPath({ pack: [], name: 'Int' }), [APublic, AFinal]));
 
     // Constructor
     var constructorExprs = [
@@ -152,19 +124,10 @@ function generateWrapperSpecificFields(componentWrappers:Array<EntityComponentIn
     // Add component wrapper initialization
     constructorExprs = constructorExprs.concat(generateComponentConstructorExprs(componentWrappers, Wrapper));
 
-    fields.push({
-        name: "new",
-        kind: FFun({
-            args: [
-                { name: "eid", type: TPath({ pack: [], name: 'Int' }) },
-                { name: "query", type: TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' }) }
-            ],
-            ret: null,
-            expr: { expr: EBlock(constructorExprs), pos: pos }
-        }),
-        pos: pos,
-        access: [APublic, AInline]
-    });
+    fields.push(MacroUtils.generateConstructorField([
+        { name: "eid", type: TPath({ pack: [], name: 'Int' }) },
+        { name: "query", type: TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' }) }
+    ], constructorExprs));
 
     return fields;
 }
@@ -187,26 +150,14 @@ function generateComponentFields(componentWrappers:Array<EntityComponentInfo>):A
                     name: "Array",
                     params: [TPType(elementComplexType)]
                 });
-                fields.push({
-                    name: storeName,
-                    kind: FVar(arrayType),
-                    pos: pos,
-                    access: [APrivate, AFinal]
-                });
+                fields.push(MacroUtils.generateBasicField(storeName, arrayType, [APrivate, AFinal]));
 
                 // Property with get/set methods
-                var accessExprs = MacroUtils.generateSimpleArrayAccessExprs(
-                    { expr: EConst(CIdent(storeName)), pos: pos },
-                    { expr: EConst(CIdent("eid")), pos: pos }
-                );
+                var arrayRef = { expr: EConst(CIdent(storeName)), pos: pos };
+                var eid = { expr: EConst(CIdent("eid")), pos: pos };
+                var getterExpr = { expr: EArray(arrayRef, eid), pos: pos };
 
-                var propFields = MacroUtils.generatePropertyWithGetSet(
-                    wrapper.name,
-                    elementComplexType,
-                    accessExprs.get,
-                    accessExprs.set
-                );
-
+                var propFields = MacroUtils.generatePropertyWithGetSet(wrapper.name, elementComplexType, getterExpr);
                 fields = fields.concat(propFields);
 
             case SoA(_) | AoS(_) | Tag:
@@ -229,43 +180,57 @@ function generateComponentConstructorExprs(componentWrappers:Array<EntityCompone
     var componentIndex = 0;
 
     for (wrapper in componentWrappers) {
-        var fieldName = wrapper.name;
-        var wrapperTypePath = switch wrapper.wrapperType {
-            case TPath(p): p;
-            case _: Context.error('Unexpected wrapper type for $fieldName', Context.currentPos());
-        };
-
-        switch wrapper.pattern {
-            case SoA(_) | AoS(_):
-                switch classType {
-                    case Accessor:
-                        constructorExprs.push(macro this.$fieldName = new $wrapperTypePath({
-                            store: world.$fieldName,
-                            eid: eid
-                        }));
-                    case Wrapper:
-                        var index = macro $v{componentIndex};
-                        constructorExprs.push(macro this.$fieldName = new $wrapperTypePath({
-                            store: query.allComponents[$index],
-                            eid: eid
-                        }));
-                }
-            case SimpleArray(_):
-                // For SimpleArray, store direct array reference (not wrapper instance)
-                var storeName = '${fieldName}Store';
-                switch classType {
-                    case Accessor:
-                        constructorExprs.push(macro this.$storeName = world.$fieldName);
-                    case Wrapper:
-                        var index = macro $v{componentIndex};
-                        constructorExprs.push(macro this.$storeName = query.allComponents[$index]);
-                }
-            case Tag:
-                constructorExprs.push(macro this.$fieldName = new $wrapperTypePath(eid));
-        }
+        constructorExprs.push(generateSingleComponentConstructorExpr(wrapper, classType, componentIndex));
         componentIndex++;
     }
 
     return constructorExprs;
+}
+
+function generateSingleComponentConstructorExpr(wrapper:EntityComponentInfo, classType:EntityClassType,
+        componentIndex:Int):Expr {
+    var fieldName = wrapper.name;
+    var wrapperTypePath = switch wrapper.wrapperType {
+        case TPath(p): p;
+        case _: Context.error('Unexpected wrapper type for $fieldName', Context.currentPos());
+    };
+
+    return switch wrapper.pattern {
+        case SoA(_) | AoS(_):
+            generateStoreWrapperConstructorExpr(fieldName, wrapperTypePath, classType, componentIndex);
+        case SimpleArray(_):
+            generateSimpleArrayConstructorExpr(fieldName, classType, componentIndex);
+        case Tag:
+            macro this.$fieldName = new $wrapperTypePath(eid);
+    };
+}
+
+function generateStoreWrapperConstructorExpr(fieldName:String, wrapperTypePath:TypePath,
+        classType:EntityClassType, componentIndex:Int):Expr {
+    return switch classType {
+        case Accessor:
+            macro this.$fieldName = new $wrapperTypePath({
+                store: world.$fieldName,
+                eid: eid
+            });
+        case Wrapper:
+            var index = macro $v{componentIndex};
+            macro this.$fieldName = new $wrapperTypePath({
+                store: query.allComponents[$index],
+                eid: eid
+            });
+    };
+}
+
+function generateSimpleArrayConstructorExpr(fieldName:String, classType:EntityClassType,
+        componentIndex:Int):Expr {
+    var storeName = '${fieldName}Store';
+    return switch classType {
+        case Accessor:
+            macro this.$storeName = world.$fieldName;
+        case Wrapper:
+            var index = macro $v{componentIndex};
+            macro this.$storeName = query.allComponents[$index];
+    };
 }
 #end
