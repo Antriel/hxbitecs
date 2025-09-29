@@ -205,6 +205,14 @@ function generateComponentConstructorExprs(componentWrappers:Array<EntityCompone
                             eid: eid
                         }));
                 }
+            case SimpleArray(_):
+                switch classType {
+                    case Accessor:
+                        constructorExprs.push(macro this.$fieldName = new $wrapperTypePath(world.$fieldName));
+                    case Wrapper:
+                        var index = macro $v{componentIndex};
+                        constructorExprs.push(macro this.$fieldName = new $wrapperTypePath(query.allComponents[$index]));
+                }
             case Tag:
                 constructorExprs.push(macro this.$fieldName = new $wrapperTypePath(eid));
         }

@@ -67,6 +67,7 @@ enum ComponentPattern {
 
     SoA(fields:Array<{name:String, type:Type}>); // Structure of Arrays: {x:Array<T>, y:Array<T>}
     AoS(elementType:Type); // Array of Structs: Array<{...}>
+    SimpleArray(elementType:Type); // Simple Array: Array<Int>, Float32Array, etc.
     Tag; // Empty object: {}
 
 }
@@ -97,7 +98,15 @@ function analyzeComponentType(type:Type):ComponentPattern {
                 }
             }
         case TInst(_.get() => { name: "Array" }, [elementType]):
-            AoS(elementType);
+            // Distinguish between Array<{...}> (AoS) and Array<primitive> (SimpleArray)
+            switch elementType {
+                case TAnonymous(_): AoS(elementType); // Array of anonymous structures
+                case _: SimpleArray(elementType); // Array of primitives
+            }
+        case TInst(_.get() => { name: typeName }, _) if (isTypedArray(typeName)):
+            // JS typed arrays: Float32Array, Int32Array, etc.
+            var elementType = getTypedArrayElementType(typeName);
+            SimpleArray(elementType);
         case _:
             Context.error('Unsupported component type: $type', Context.currentPos());
     }
@@ -130,8 +139,34 @@ function getComponentFields(componentType:Type):Array<ComponentFieldInfo> {
                 case _:
                     Context.error('AoS element type must be anonymous structure', Context.currentPos());
             }
+        case SimpleArray(elementType):
+            []; // Simple arrays have no named fields - direct array access
         case Tag:
             [];
+    }
+}
+
+function isTypedArray(typeName:String):Bool {
+    return switch typeName {
+        case "Int8Array" | "Uint8Array" | "Uint8ClampedArray" |
+             "Int16Array" | "Uint16Array" |
+             "Int32Array" | "Uint32Array" |
+             "Float32Array" | "Float64Array" |
+             "BigInt64Array" | "BigUint64Array": true;
+        case _: false;
+    }
+}
+
+function getTypedArrayElementType(typeName:String):Type {
+    return switch typeName {
+        case "Int8Array" | "Int16Array" | "Int32Array" | "Uint8Array" | "Uint16Array" | "Uint32Array" | "Uint8ClampedArray":
+            Context.getType("Int");
+        case "Float32Array" | "Float64Array":
+            Context.getType("Float");
+        case "BigInt64Array" | "BigUint64Array":
+            Context.getType("haxe.Int64"); // or appropriate big int type
+        case _:
+            Context.error('Unknown typed array: $typeName', Context.currentPos());
     }
 }
 

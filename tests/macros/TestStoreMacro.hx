@@ -7,6 +7,8 @@ class TestStoreMacro extends Test {
             pos: new hxbitecs.SoA<Vec2>(),
             health: new hxbitecs.SoA<{hp:Int}>(),
             vel: new Array<{x:Float, y:Float}>(),
+            damage: new Array<Int>(),
+            speed: new js.lib.Float32Array(1000),
         });
         final entity1 = Bitecs.addEntity(world);
         Bitecs.addComponent(world, entity1, world.pos);
@@ -17,6 +19,20 @@ class TestStoreMacro extends Test {
         world.pos.x[entity1] = 10;
         world.vel[entity1] = { x: 10, y: 10 };
         world.health.hp[entity1] = 100;
+
+        // Test simple array components
+        Bitecs.addComponent(world, entity1, world.damage);
+        world.damage[entity1] = 50;
+        Assert.equals(50, world.damage[entity1]);
+
+        Bitecs.addComponent(world, entity1, world.speed);
+        world.speed[entity1] = 1.5;
+        Assert.equals(1.5, world.speed[entity1]);
+
+        // Test querying with simple array components
+        final damageEnts = Bitecs.query(world, [world.damage]);
+        Assert.equals(1, damageEnts.asType1.length);
+        Assert.equals(entity1, damageEnts.asType1[0]);
     }
 
 }
