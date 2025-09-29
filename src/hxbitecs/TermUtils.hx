@@ -26,57 +26,32 @@ typedef QueryTermInfo = {
 
 }
 
-typedef SimpleTermInfo = {
-
-    // All unique components collected from the simple terms
-    allComponents:Array<TermInfo>,
-    // Simple component expressions for bitECS (no operators)
-    componentExprs:Array<Expr>,
-    // Unique identifier based on component list
-    structureId:String
-
-}
-
-function parseTerms(worldType:Type, termsType:Type):QueryTermInfo {
+function parseTerms(worldType:Type, termsType:Type, allowOperators:Bool = true):QueryTermInfo {
     var termExprs = getTermExpressions(termsType);
     var allComponents:Array<TermInfo> = [];
     var queryExprs:Array<Expr> = [];
 
     for (expr in termExprs) {
-        var parsed = parseQueryTerm(worldType, expr, allComponents);
-        queryExprs.push(parsed);
+        if (allowOperators) {
+            var parsed = parseQueryTerm(worldType, expr, allComponents);
+            queryExprs.push(parsed);
+        } else {
+            // Simple terms only - no operators allowed
+            switch expr.expr {
+                case EConst(CIdent(componentName)):
+                    collectComponent(worldType, componentName, allComponents);
+                    queryExprs.push(macro world.$componentName);
+                case _:
+                    Context.error('EntityAccessor only supports simple component names, not operators: ${expr.expr}', expr.pos);
+            }
+        }
     }
 
-    var structureId = generateStructureId(termExprs);
+    var structureId = generateStructureId(termExprs, !allowOperators);
 
     return {
         allComponents: allComponents,
         queryExprs: queryExprs,
-        structureId: structureId
-    };
-}
-
-function parseSimpleTerms(worldType:Type, termsType:Type):SimpleTermInfo {
-    var termExprs = getTermExpressions(termsType);
-    var allComponents:Array<TermInfo> = [];
-    var componentExprs:Array<Expr> = [];
-
-    for (expr in termExprs) {
-        switch expr.expr {
-            // Only allow simple component references: pos, vel, health
-            case EConst(CIdent(componentName)):
-                collectComponent(worldType, componentName, allComponents);
-                componentExprs.push(macro world.$componentName);
-            case _:
-                Context.error('EntityAccessor only supports simple component names, not operators: ${expr.expr}', expr.pos);
-        }
-    }
-
-    var structureId = generateSimpleStructureId(termExprs);
-
-    return {
-        allComponents: allComponents,
-        componentExprs: componentExprs,
         structureId: structureId
     };
 }
@@ -138,24 +113,19 @@ function collectComponent(worldType:Type, componentName:String, allComponents:Ar
     });
 }
 
-function generateStructureId(termExprs:Array<Expr>):String {
+function generateStructureId(termExprs:Array<Expr>, simple:Bool = false):String {
     var parts:Array<String> = [];
 
     for (expr in termExprs) {
-        parts.push(exprToIdString(expr));
-    }
-
-    return parts.join('_');
-}
-function generateSimpleStructureId(termExprs:Array<Expr>):String {
-    var parts:Array<String> = [];
-
-    for (expr in termExprs) {
-        switch expr.expr {
-            case EConst(CIdent(name)):
-                parts.push(name);
-            case _:
-                parts.push('Unknown');
+        if (simple) {
+            switch expr.expr {
+                case EConst(CIdent(name)):
+                    parts.push(name);
+                case _:
+                    parts.push('Unknown');
+            }
+        } else {
+            parts.push(exprToIdString(expr));
         }
     }
 

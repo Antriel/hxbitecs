@@ -134,4 +134,5 @@ function getComponentFields(componentType:Type):Array<ComponentFieldInfo> {
             [];
     }
 }
+
 #end
