@@ -56,10 +56,18 @@ class Query {
             params: [TPType(wrapperComplexType)]
         };
 
+        // Generate component store expressions from allComponents
+        // This ensures we only pass actual component stores, not operator expressions
+        var componentStoreExprs:Array<Expr> = [];
+        for (termInfo in queryTermInfo.allComponents) {
+            var componentName = termInfo.name;
+            componentStoreExprs.push(macro $worldExpr.$componentName);
+        }
+
         // Generate block expression that creates the iterator directly
         return macro {
             var queryResult = bitecs.Bitecs.query($worldExpr, $a{queryTermInfo.queryExprs});
-            new $iteratorType(queryResult, $a{queryTermInfo.queryExprs});
+            new $iteratorType(queryResult, $a{componentStoreExprs});
         };
     }
     #end

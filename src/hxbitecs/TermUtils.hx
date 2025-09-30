@@ -42,7 +42,7 @@ function parseTermsInternal(worldType:Type, termExprs:Array<Expr>, allowOperator
 
     for (expr in termExprs) {
         if (allowOperators) {
-            var parsed = parseQueryTerm(worldType, expr, allComponents);
+            var parsed = parseQueryTerm(worldType, expr, allComponents, true);
             queryExprs.push(parsed);
         } else {
             // Simple terms only - no operators allowed
@@ -83,18 +83,27 @@ function getTermExpressionsFromExpr(termsExpr:Expr):Array<Expr> {
     }
 }
 
-function parseQueryTerm(worldType:Type, expr:Expr, allComponents:Array<TermInfo>):Expr {
+function parseQueryTerm(worldType:Type, expr:Expr, allComponents:Array<TermInfo>, shouldCollect:Bool):Expr {
     return switch expr.expr {
         // Simple component reference: pos, vel, health
         case EConst(CIdent(componentName)):
-            collectComponent(worldType, componentName, allComponents);
+            if (shouldCollect) {
+                collectComponent(worldType, componentName, allComponents);
+            }
             macro world.$componentName;
 
         // Operator calls: Or(pos, vel), Not(health), And(pos, vel)
         case ECall({ expr: EConst(CIdent(op)) }, args) if (isQueryOperator(op)):
+            // Determine if components inside this operator should be collected
+            var collectChildren = switch op {
+                case "Not" | "None": false; // Do NOT collect components in negative operators
+                case "Or" | "And" | "Any" | "All": true; // DO collect in positive operators
+                case _: true;
+            };
+
             var parsedArgs = [];
             for (arg in args) {
-                parsedArgs.push(parseQueryTerm(worldType, arg, allComponents));
+                parsedArgs.push(parseQueryTerm(worldType, arg, allComponents, collectChildren));
             }
             var opExpr = switch op {
                 case "Or": macro bitecs.Bitecs.Or;
@@ -147,7 +156,10 @@ function generateStructureId(termExprs:Array<Expr>, simple:Bool = false):String 
         }
     }
 
-    return parts.join('_');
+    // Use T to separate top-level terms to avoid collisions
+    // e.g., [pos, None(vel, health)] -> "posTNone_vel_health"
+    //       [pos, None(vel), health] -> "posTNone_velThealth"
+    return parts.join('T');
 }
 
 function exprToIdString(expr:Expr):String {

@@ -128,6 +128,9 @@ class TestAdHocQuery extends Test {
         for (e in hxbitecs.Query.query(world, [pos, Or(health, isPoisoned), Not(vel)])) {
             foundEntityIds.push(e.eid);
             entityCount++;
+            // Verify we can access pos (all should have it)
+            Assert.isTrue(e.pos.x > 0);
+            // Both health and isPoisoned should be in wrapper since they're in Or()
         }
         // Need entities with:
         // - pos (all have it)
@@ -160,6 +163,20 @@ class TestAdHocQuery extends Test {
         // Intersection: 1, 5, 7
         Assert.equals(3, entityCount);
         Assert.same([1, 5, 7], foundEntityIds);
+    }
+
+    public function testAdHocQueryNoneWithComponentAccess() {
+        var entityCount = 0;
+        for (e in hxbitecs.Query.query(world, [pos, None(vel), health])) {
+            entityCount++;
+            // Verify pos is accessible
+            Assert.isTrue(e.pos.x > 0);
+            // Verify health is accessible at correct index
+            Assert.notNull(e.health);
+            Assert.isTrue(e.health.hp >= 100);
+        }
+        // Only entities with pos AND health AND NOT vel: entities 3, 9
+        Assert.equals(2, entityCount);
     }
 
     public function testAdHocQueryNestedStructure() {
