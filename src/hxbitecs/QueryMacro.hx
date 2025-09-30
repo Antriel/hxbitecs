@@ -66,11 +66,19 @@ function generateQuery(name:String, target:Type, terms:Type,
         ]
     };
 
+    // Generate array literal with explicit indices for component stores
+    // e.g., [this.allComponents[0], this.allComponents[1], ...]
+    var componentArrayExprs:Array<Expr> = [];
+    for (i in 0...queryTermInfo.allComponents.length) {
+        var index = macro $v{i};
+        componentArrayExprs.push(macro this.allComponents[$index]);
+    }
+
     var iteratorMethod:Field = {
         name: "iterator",
         kind: FFun({
             args: [],
-            expr: macro return new $iterTp(this)
+            expr: macro return new $iterTp(this.dense.asType1, $a{componentArrayExprs})
         }),
         pos: pos,
         access: [APublic, AInline]

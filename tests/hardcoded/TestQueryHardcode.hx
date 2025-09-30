@@ -39,7 +39,7 @@ abstract PosVelQuery(bitecs.core.query.Query) {
         this = Bitecs.registerQuery(world, [world.pos, world.vel]);
     }
 
-    public inline function iterator() return new QueryIterator<PosVelWrapper>(this);
+    public inline function iterator() return new QueryIterator<PosVelWrapper>(this.dense, this.allComponents);
 
 }
 

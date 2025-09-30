@@ -52,7 +52,7 @@ class Query {
         // Generate iterator type
         var iteratorType:TypePath = {
             pack: ['hxbitecs'],
-            name: 'AdHocQueryIterator',
+            name: 'QueryIterator',
             params: [TPType(wrapperComplexType)]
         };
 
