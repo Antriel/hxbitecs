@@ -1,0 +1,127 @@
+package hxbitecs;
+
+#if macro
+import haxe.macro.Context;
+import haxe.macro.Expr;
+import haxe.macro.Type;
+import haxe.macro.TypeTools;
+#end
+
+/**
+ * Type-safe component initializer macro that wraps bitecs.addComponent
+ * with field validation and ergonomic initialization syntax.
+ *
+ * Usage: InitComponent.add(world, eid, pos, {x: 10, y: 20})
+ */
+class InitComponent {
+
+    /**
+     * Adds a component to an entity and initializes its fields.
+     * @param world The world instance
+     * @param eid The entity ID
+     * @param component The component store (can be `comp` or `world.comp`)
+     * @param init Optional initializer object with field values
+     */
+    public static macro function add(world:Expr, eid:Expr, component:Expr, ?init:Expr):Expr {
+        final e = addImpl(world, eid, component, init);
+        trace(new haxe.macro.Printer().printExpr(e));
+        return e;
+    }
+
+    #if macro
+    static function addImpl(world:Expr, eid:Expr, component:Expr, ?init:Expr):Expr {
+        var pos = Context.currentPos();
+
+        // Normalize init - if it's null or not provided, treat as no initialization
+        var hasInit = switch init {
+            case null | { expr: EConst(CIdent("null")) }: false;
+            case _: true;
+        };
+
+        // Type the component expression to determine its type
+        var componentType = Context.typeof(component);
+
+        // Analyze component pattern (SoA, AoS, SimpleArray, Tag)
+        var pattern = MacroUtils.analyzeComponentType(componentType);
+
+        // Generate code based on pattern
+        return switch pattern {
+            case Tag:
+                if (hasInit) {
+                    Context.error('Tag components have no fields and cannot be initialized with values', init.pos);
+                }
+                // Just add the component
+                macro bitecs.Bitecs.addComponent($world, $eid, $component);
+
+            case SimpleArray(_) | AoS(_):
+                if (!hasInit) {
+                    // Just add the component without initialization
+                    macro bitecs.Bitecs.addComponent($world, $eid, $component);
+                } else {
+                    // Add and initialize with direct assignment
+                    macro {
+                        var __comp = $component;
+                        bitecs.Bitecs.addComponent($world, $eid, __comp);
+                        __comp[$eid] = $init;
+                    };
+                }
+
+            case SoA(_):
+                generateStructuredInit(world, eid, component, componentType, pattern, hasInit, init, pos);
+        }
+    }
+
+    static function generateStructuredInit(world:Expr, eid:Expr, component:Expr, componentType:Type,
+            pattern:MacroUtils.ComponentPattern, hasInit:Bool, init:Expr, pos:Position):Expr {
+
+        // Get component fields
+        var componentFields = MacroUtils.getComponentFields(componentType);
+
+        if (!hasInit) {
+            // Just add component without initialization
+            return macro bitecs.Bitecs.addComponent($world, $eid, $component);
+        }
+
+        // Extract initializer fields from the object literal
+        var initFields = switch init.expr {
+            case EObjectDecl(fields):
+                fields;
+            case _:
+                Context.error('Initializer must be an object literal like {x: 10, y: 20}', init.pos);
+        };
+
+        // Validate fields: check for extra fields not in component
+        var componentFieldNames = [for (f in componentFields) f.name];
+        for (initField in initFields) {
+            if (!componentFieldNames.contains(initField.field)) {
+                Context.error('Field "${initField.field}" does not exist in component. Available fields: ${componentFieldNames.join(", ")}',
+                    initField.expr.pos);
+            }
+        }
+
+        // Generate wrapper type path
+        var wrapperTypePath:TypePath = {
+            pack: ['hxbitecs'],
+            name: 'ComponentWrapperMacro',
+            params: [TPType(TypeTools.toComplexType(componentType))]
+        };
+
+        // Generate field assignments
+        var assignments:Array<Expr> = [];
+        for (initField in initFields) {
+            var fieldName = initField.field;
+            var fieldValue = initField.expr;
+            assignments.push(macro __w.$fieldName = $fieldValue);
+        }
+
+        // Generate the full initialization block
+        return macro {
+            var __comp = $component;
+            bitecs.Bitecs.addComponent($world, $eid, __comp);
+            var __w = new $wrapperTypePath({ store: __comp, eid: $eid });
+            $b{assignments};
+        };
+    }
+    #end
+
+}
