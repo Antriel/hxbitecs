@@ -78,6 +78,7 @@ function generateQuery(name:String, target:Type, terms:Type,
         name: "iterator",
         kind: FFun({
             args: [],
+            ret: TPath(iterTp),
             expr: macro return new $iterTp(this.dense.asType1, $a{componentArrayExprs})
         }),
         pos: pos,
