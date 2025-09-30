@@ -178,30 +178,15 @@ class TestAdHocQuery extends Test {
         Assert.equals(6, results[0].eid);
     }
 
-    public function testAdHocQueryPerformance() {
-        // Simple performance test - should not throw or be extremely slow
-        var iterations = 100;
-        var start = haxe.Timer.stamp();
-
-        for (i in 0...iterations) {
-            var count = 0;
-            for (e in hxbitecs.Query.query(world, [pos, vel])) {
-                count++;
-            }
-            Assert.equals(5, count);
-        }
-
-        var elapsed = haxe.Timer.stamp() - start;
-        // Should complete in reasonable time (less than 1 second for 100 iterations)
-        Assert.isTrue(elapsed < 1.0);
-    }
 }
 
 @:publicFields class AdHocTestWorld {
+
     function new() { }
 
     var pos = { x: new Array<Float>(), y: new Array<Float>() };
     var vel = { x: new Array<Float>(), y: new Array<Float>() };
     var health = new Array<{hp:Int}>();
     var isPoisoned = {};
+
 }

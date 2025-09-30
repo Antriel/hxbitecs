@@ -36,20 +36,30 @@ class Query {
         // Get world type from expression
         var worldType = Context.typeof(worldExpr);
 
-        // Generate type path for AdHocQuery
-        var adHocQueryTypePath = {
+        // Parse terms from expression
+        var queryTermInfo = TermUtils.parseTermsFromExpr(worldType, termsExpr);
+
+        // Generate EntityWrapperMacro type for the iterator
+        var wrapperComplexType = TPath({
             pack: ['hxbitecs'],
-            name: 'AdHocQuery',
+            name: 'EntityWrapperMacro',
             params: [
                 TPType(TypeTools.toComplexType(worldType)),
                 TPExpr(termsExpr)
             ]
+        });
+
+        // Generate iterator type
+        var iteratorType:TypePath = {
+            pack: ['hxbitecs'],
+            name: 'AdHocQueryIterator',
+            params: [TPType(wrapperComplexType)]
         };
 
-        // Return simple rewrite to new AdHocQuery<World, [terms]>(world)
-        return {
-            expr: ENew(adHocQueryTypePath, [worldExpr]),
-            pos: pos
+        // Generate block expression that creates the iterator directly
+        return macro {
+            var queryResult = bitecs.Bitecs.query($worldExpr, $a{queryTermInfo.queryExprs});
+            new $iteratorType(queryResult, $a{queryTermInfo.queryExprs});
         };
     }
     #end

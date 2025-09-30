@@ -6,6 +6,7 @@ function main() {
     runner.addCase(new macros.TestStoreMacro());
     runner.addCase(new macros.TestQueryMacro());
     runner.addCase(new macros.TestComponentAccess());
+    runner.addCase(new macros.TestAdHocQuery());
     utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
     runner.run();
 }

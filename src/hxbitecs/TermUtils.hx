@@ -28,6 +28,15 @@ typedef QueryTermInfo = {
 
 function parseTerms(worldType:Type, termsType:Type, allowOperators:Bool = true):QueryTermInfo {
     var termExprs = getTermExpressions(termsType);
+    return parseTermsInternal(worldType, termExprs, allowOperators);
+}
+
+function parseTermsFromExpr(worldType:Type, termsExpr:Expr, allowOperators:Bool = true):QueryTermInfo {
+    var termExprs = getTermExpressionsFromExpr(termsExpr);
+    return parseTermsInternal(worldType, termExprs, allowOperators);
+}
+
+function parseTermsInternal(worldType:Type, termExprs:Array<Expr>, allowOperators:Bool):QueryTermInfo {
     var allComponents:Array<TermInfo> = [];
     var queryExprs:Array<Expr> = [];
 
@@ -62,6 +71,15 @@ function getTermExpressions(terms:Type):Array<Expr> {
             values;
         case _:
             Context.error('Expected TInst(KExpr(EArrayDecl())) for terms, got: $terms', Context.currentPos());
+    }
+}
+
+function getTermExpressionsFromExpr(termsExpr:Expr):Array<Expr> {
+    return switch termsExpr.expr {
+        case EArrayDecl(values):
+            values;
+        case _:
+            Context.error('Expected array literal for query terms, got: ${termsExpr.expr}', termsExpr.pos);
     }
 }
 
