@@ -45,16 +45,14 @@ abstract PosVelQuery(bitecs.core.query.Query) {
 
 class PosVelWrapper {
 
-    public final query:bitecs.core.query.Query;
     public final eid:Int;
     public final pos:XYSoAWrapper;
     public final vel:XYSoAWrapper;
 
-    public inline function new(eid:Int, query:bitecs.core.query.Query) {
+    public inline function new(eid:Int, allComponents:Array<Dynamic>) {
         this.eid = eid;
-        this.query = query;
-        this.pos = new XYSoAWrapper({ store: query.allComponents[0], eid: eid });
-        this.vel = new XYSoAWrapper({ store: query.allComponents[1], eid: eid });
+        this.pos = new XYSoAWrapper({ store: allComponents[0], eid: eid });
+        this.vel = new XYSoAWrapper({ store: allComponents[1], eid: eid });
     }
 
 }

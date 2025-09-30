@@ -2,7 +2,7 @@ package hxbitecs;
 
 import bitecs.core.query.Query;
 
-@:generic class QueryIterator<T:haxe.Constraints.Constructible<Int->Query->Void>> {
+@:generic class QueryIterator<T:haxe.Constraints.Constructible<Int->Array<Dynamic>->Void>> {
     final query:Query;
     var i:Int = 0;
 
@@ -17,6 +17,6 @@ import bitecs.core.query.Query;
     public inline function next() {
         var eid = query.dense.asType1[i];
         i++;
-        return new T(eid, query);
+        return new T(eid, query.allComponents);
     }
 }

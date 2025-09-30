@@ -111,14 +111,14 @@ function generateAccessorSpecificFields(world:Type,
 function generateWrapperSpecificFields(componentWrappers:Array<EntityComponentInfo>):Array<Field> {
     var fields:Array<Field> = [];
 
-    // Add query and eid fields
-    fields.push(MacroUtils.generateBasicField("query", TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' }), [APublic, AFinal]));
+    // Add eid and components fields
     fields.push(MacroUtils.generateBasicField("eid", TPath({ pack: [], name: 'Int' }), [APublic, AFinal]));
+    fields.push(MacroUtils.generateBasicField("components", TPath({ pack: [], name: 'Array', params: [TPType(TPath({ pack: [], name: 'Dynamic' }))] }), [APublic, AFinal]));
 
     // Constructor
     var constructorExprs = [
         macro this.eid = eid,
-        macro this.query = query
+        macro this.components = components
     ];
 
     // Add component wrapper initialization
@@ -126,7 +126,7 @@ function generateWrapperSpecificFields(componentWrappers:Array<EntityComponentIn
 
     fields.push(MacroUtils.generateConstructorField([
         { name: "eid", type: TPath({ pack: [], name: 'Int' }) },
-        { name: "query", type: TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' }) }
+        { name: "components", type: TPath({ pack: [], name: 'Array', params: [TPType(TPath({ pack: [], name: 'Dynamic' }))] }) }
     ], constructorExprs));
 
     return fields;
@@ -216,7 +216,7 @@ function generateStoreWrapperConstructorExpr(fieldName:String, wrapperTypePath:T
         case Wrapper:
             var index = macro $v{componentIndex};
             macro this.$fieldName = new $wrapperTypePath({
-                store: query.allComponents[$index],
+                store: components[$index],
                 eid: eid
             });
     };
@@ -230,7 +230,7 @@ function generateSimpleArrayConstructorExpr(fieldName:String, classType:EntityCl
             macro this.$storeName = world.$fieldName;
         case Wrapper:
             var index = macro $v{componentIndex};
-            macro this.$storeName = query.allComponents[$index];
+            macro this.$storeName = components[$index];
     };
 }
 #end
