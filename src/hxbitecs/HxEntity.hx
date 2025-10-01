@@ -8,7 +8,7 @@ import haxe.macro.TypeTools;
 #end
 
 #if !macro
-@:genericBuild(hxbitecs.EntityAccessorMacro.build()) class EntityAccessorMacro<World, Rest> { }
+@:genericBuild(hxbitecs.HxEntity.build()) class HxEntity<World, Rest> { }
 
 #else
 function build() {
@@ -22,7 +22,7 @@ function build() {
             return MacroUtils.buildGenericType(name, ct, () ->
                 generateEntityAccessor(name, world, terms, simpleTermInfo));
         case _:
-            Context.error("EntityAccessorMacro requires exactly two type parameters", Context.currentPos());
+            Context.error("HxEntity requires exactly two type parameters", Context.currentPos());
     }
 }
 

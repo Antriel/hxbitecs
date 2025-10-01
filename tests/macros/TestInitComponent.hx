@@ -1,6 +1,6 @@
 package macros;
 
-import hxbitecs.InitComponent;
+import hxbitecs.Hx;
 
 class TestInitComponent extends Test {
 
@@ -18,7 +18,7 @@ class TestInitComponent extends Test {
         // Test full initialization of SoA component with all fields
         var eid = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid, world.pos, { x: 10.0, y: 20.0 });
+        Hx.addComponent(world, eid, world.pos, { x: 10.0, y: 20.0 });
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
         Assert.equals(10.0, world.pos.x[eid]);
@@ -29,7 +29,7 @@ class TestInitComponent extends Test {
         // Test partial initialization - only some fields
         var eid = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid, world.pos, { x: 15.0 });
+        Hx.addComponent(world, eid, world.pos, { x: 15.0 });
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
         Assert.equals(15.0, world.pos.x[eid]);
@@ -40,7 +40,7 @@ class TestInitComponent extends Test {
         // Test Array of Structs initialization
         var eid = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid, world.health, { hp: 100, maxHp: 150 });
+        Hx.addComponent(world, eid, world.health, { hp: 100, maxHp: 150 });
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.health));
         Assert.equals(100, world.health[eid].hp);
@@ -51,7 +51,7 @@ class TestInitComponent extends Test {
         // Test simple array component initialization
         var eid = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid, world.damage, 50);
+        Hx.addComponent(world, eid, world.damage, 50);
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.damage));
         Assert.equals(50, world.damage[eid]);
@@ -61,7 +61,7 @@ class TestInitComponent extends Test {
         // Test adding simple array component without initialization
         var eid = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid, world.damage);
+        Hx.addComponent(world, eid, world.damage);
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.damage));
         // Value should be whatever the default is (0 or undefined behavior)
@@ -71,7 +71,7 @@ class TestInitComponent extends Test {
         // Test tag component (no initialization allowed)
         var eid = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid, world.isAlive);
+        Hx.addComponent(world, eid, world.isAlive);
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.isAlive));
     }
@@ -81,7 +81,7 @@ class TestInitComponent extends Test {
         var eid = Bitecs.addEntity(world);
         var pos = world.pos;
 
-        InitComponent.add(world, eid, pos, { x: 25.0, y: 35.0 });
+        Hx.addComponent(world, eid, pos, { x: 25.0, y: 35.0 });
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
         Assert.equals(25.0, world.pos.x[eid]);
@@ -92,10 +92,10 @@ class TestInitComponent extends Test {
         // Test adding multiple components to same entity
         var eid = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid, world.pos, { x: 5.0, y: 10.0 });
-        InitComponent.add(world, eid, world.vel, { x: 1.0, y: 2.0 });
-        InitComponent.add(world, eid, world.damage, 30);
-        InitComponent.add(world, eid, world.isAlive);
+        Hx.addComponent(world, eid, world.pos, { x: 5.0, y: 10.0 });
+        Hx.addComponent(world, eid, world.vel, { x: 1.0, y: 2.0 });
+        Hx.addComponent(world, eid, world.damage, 30);
+        Hx.addComponent(world, eid, world.isAlive);
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.vel));
@@ -113,7 +113,7 @@ class TestInitComponent extends Test {
         // Test that values can be modified after initialization
         var eid = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid, world.pos, { x: 100.0, y: 200.0 });
+        Hx.addComponent(world, eid, world.pos, { x: 100.0, y: 200.0 });
 
         Assert.equals(100.0, world.pos.x[eid]);
         Assert.equals(200.0, world.pos.y[eid]);
@@ -132,10 +132,10 @@ class TestInitComponent extends Test {
         var eid2 = Bitecs.addEntity(world);
         var eid3 = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid1, world.pos, { x: 1.0, y: 2.0 });
-        InitComponent.add(world, eid2, world.pos, { x: 3.0, y: 4.0 });
-        InitComponent.add(world, eid2, world.vel, { x: 0.5, y: 0.5 });
-        InitComponent.add(world, eid3, world.vel, { x: 1.0, y: 1.0 });
+        Hx.addComponent(world, eid1, world.pos, { x: 1.0, y: 2.0 });
+        Hx.addComponent(world, eid2, world.pos, { x: 3.0, y: 4.0 });
+        Hx.addComponent(world, eid2, world.vel, { x: 0.5, y: 0.5 });
+        Hx.addComponent(world, eid3, world.vel, { x: 1.0, y: 1.0 });
 
         // Query for entities with pos
         var posQuery = Bitecs.query(world, [world.pos]);
@@ -151,7 +151,7 @@ class TestInitComponent extends Test {
         // Test that components can be added without initializer
         var eid = Bitecs.addEntity(world);
 
-        InitComponent.add(world, eid, world.pos);
+        Hx.addComponent(world, eid, world.pos);
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
         // Values will be whatever the default is
@@ -162,29 +162,29 @@ class TestInitComponent extends Test {
         var eid = Bitecs.addEntity(world);
 
         // This should work - correct types
-        InitComponent.add(world, eid, world.pos, { x: 10.0, y: 20.0 });
+        Hx.addComponent(world, eid, world.pos, { x: 10.0, y: 20.0 });
         Assert.equals(10.0, world.pos.x[eid]);
 
         // Type mismatches will be caught by Haxe compiler at compile time
-        // InitComponent.add(world, eid, world.pos, {x: "string", y: 20.0}); // Would fail to compile
-        // InitComponent.add(world, eid, world.damage, {value: 10}); // Would fail to compile
+        // Hx.addComponent(world, eid, world.pos, {x: "string", y: 20.0}); // Would fail to compile
+        // Hx.addComponent(world, eid, world.damage, {value: 10}); // Would fail to compile
     }
 
     // The following tests would cause compile-time errors and are commented out:
     // public function testExtraFieldError() {
     //     var eid = Bitecs.addEntity(world);
     //     // Error: Field "z" does not exist in component
-    //     InitComponent.add(world, eid, world.pos, { x: 10.0, y: 20.0, z: 30.0 });
+    //     Hx.addComponent(world, eid, world.pos, { x: 10.0, y: 20.0, z: 30.0 });
     // }
     // public function testTagWithInitError() {
     //     var eid = Bitecs.addEntity(world);
     //     // Error: Tag components have no fields and cannot be initialized
-    //     InitComponent.add(world, eid, world.isAlive, { value: true });
+    //     Hx.addComponent(world, eid, world.isAlive, { value: true });
     // }
     // public function testWrongTypeError() {
     //     var eid = Bitecs.addEntity(world);
     //     // Error: Type mismatch - x should be Float, not String
-    //     InitComponent.add(world, eid, world.pos, { x: "not a number", y: 20.0 });
+    //     Hx.addComponent(world, eid, world.pos, { x: "not a number", y: 20.0 });
     // }
 
 }

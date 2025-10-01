@@ -37,7 +37,7 @@ class TestAdHocQuery extends Test {
     public function testAdHocQueryBasic() {
         var entityCount = 0;
 
-        for (e in hxbitecs.Query.query(world, [pos, vel])) {
+        for (e in hxbitecs.Hx.query(world, [pos, vel])) {
             entityCount++;
             e.pos.x += e.vel.x;
             e.pos.y += e.vel.y;
@@ -46,7 +46,7 @@ class TestAdHocQuery extends Test {
         Assert.equals(5, entityCount);
 
         // Verify the modifications were applied
-        for (e in hxbitecs.Query.query(world, [pos, vel])) {
+        for (e in hxbitecs.Hx.query(world, [pos, vel])) {
             var originalPosX = e.eid * 10.0;
             var originalPosY = e.eid * 5.0;
             var velX = e.eid + 1.0;
@@ -60,7 +60,7 @@ class TestAdHocQuery extends Test {
     public function testAdHocQuerySimpleComponents() {
         // Test with simple SoA components
         var entityCount = 0;
-        for (e in hxbitecs.Query.query(world, [pos])) {
+        for (e in hxbitecs.Hx.query(world, [pos])) {
             entityCount++;
             Assert.notNull(e.pos);
             Assert.isTrue(e.pos.x > 0);
@@ -72,7 +72,7 @@ class TestAdHocQuery extends Test {
     public function testAdHocQueryAoSComponents() {
         // Test with AoS component (health)
         var entityCount = 0;
-        for (e in hxbitecs.Query.query(world, [health])) {
+        for (e in hxbitecs.Hx.query(world, [health])) {
             entityCount++;
             Assert.notNull(e.health);
             Assert.isTrue(e.health.hp >= 100);
@@ -84,7 +84,7 @@ class TestAdHocQuery extends Test {
         // Test with tag component (isPoisoned)
         var entityCount = 0;
         var poisonedIds = [];
-        for (e in hxbitecs.Query.query(world, [isPoisoned])) {
+        for (e in hxbitecs.Hx.query(world, [isPoisoned])) {
             entityCount++;
             poisonedIds.push(e.eid);
         }
@@ -94,7 +94,7 @@ class TestAdHocQuery extends Test {
 
     public function testAdHocQueryOrOperator() {
         var entityCount = 0;
-        for (e in hxbitecs.Query.query(world, [Or(pos, vel)])) {
+        for (e in hxbitecs.Hx.query(world, [Or(pos, vel)])) {
             entityCount++;
         }
         // All entities have pos, even entities have vel, so should get all 10 entities
@@ -104,7 +104,7 @@ class TestAdHocQuery extends Test {
     public function testAdHocQueryNotOperator() {
         var entityCount = 0;
         var oddEntityIds = [];
-        for (e in hxbitecs.Query.query(world, [pos, Not(vel)])) {
+        for (e in hxbitecs.Hx.query(world, [pos, Not(vel)])) {
             oddEntityIds.push(e.eid);
             entityCount++;
         }
@@ -115,7 +115,7 @@ class TestAdHocQuery extends Test {
 
     public function testAdHocQueryAndOperator() {
         var entityCount = 0;
-        for (e in hxbitecs.Query.query(world, [And(pos, vel)])) {
+        for (e in hxbitecs.Hx.query(world, [And(pos, vel)])) {
             entityCount++;
         }
         // Even entities have both pos and vel, so should get 5 entities
@@ -125,7 +125,7 @@ class TestAdHocQuery extends Test {
     public function testAdHocQueryComplexOperators() {
         var entityCount = 0;
         var foundEntityIds = [];
-        for (e in hxbitecs.Query.query(world, [pos, Or(health, isPoisoned), Not(vel)])) {
+        for (e in hxbitecs.Hx.query(world, [pos, Or(health, isPoisoned), Not(vel)])) {
             foundEntityIds.push(e.eid);
             entityCount++;
             // Verify we can access pos (all should have it)
@@ -143,7 +143,7 @@ class TestAdHocQuery extends Test {
 
     public function testAdHocQueryAnyAlias() {
         var entityCount = 0;
-        for (e in hxbitecs.Query.query(world, [Any(pos, vel)])) {
+        for (e in hxbitecs.Hx.query(world, [Any(pos, vel)])) {
             entityCount++;
         }
         // Any(pos, vel) should be same as Or(pos, vel)
@@ -153,7 +153,7 @@ class TestAdHocQuery extends Test {
     public function testAdHocQueryNoneAlias() {
         var entityCount = 0;
         var foundEntityIds = [];
-        for (e in hxbitecs.Query.query(world, [pos, None(vel, health)])) {
+        for (e in hxbitecs.Hx.query(world, [pos, None(vel, health)])) {
             foundEntityIds.push(e.eid);
             entityCount++;
         }
@@ -167,7 +167,7 @@ class TestAdHocQuery extends Test {
 
     public function testAdHocQueryNoneWithComponentAccess() {
         var entityCount = 0;
-        for (e in hxbitecs.Query.query(world, [pos, None(vel), health])) {
+        for (e in hxbitecs.Hx.query(world, [pos, None(vel), health])) {
             entityCount++;
             // Verify pos is accessible
             Assert.isTrue(e.pos.x > 0);
@@ -182,7 +182,7 @@ class TestAdHocQuery extends Test {
     public function testAdHocQueryNestedStructure() {
         // Test ad-hoc query with multiple component types in one query
         var results = [];
-        for (e in hxbitecs.Query.query(world, [pos, vel, health])) {
+        for (e in hxbitecs.Hx.query(world, [pos, vel, health])) {
             results.push({
                 eid: e.eid,
                 posX: e.pos.x,

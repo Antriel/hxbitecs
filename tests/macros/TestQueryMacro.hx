@@ -37,8 +37,8 @@ class TestQueryMacro extends Test {
     }
 
     public function testSimpleSoA() {
-        var posVel:hxbitecs.QueryMacro<MyQueryWorld, [pos, vel]>;
-        posVel = new hxbitecs.QueryMacro<MyQueryWorld, [pos, vel]>(world);
+        var posVel:hxbitecs.HxQuery<MyQueryWorld, [pos, vel]>;
+        posVel = new hxbitecs.HxQuery<MyQueryWorld, [pos, vel]>(world);
 
         var entityCount = 0;
         for (e in posVel) {
@@ -56,7 +56,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testOrOperator() {
-        var posOrVel = new hxbitecs.QueryMacro<MyQueryWorld, [Or(pos, vel)]>(world);
+        var posOrVel = new hxbitecs.HxQuery<MyQueryWorld, [Or(pos, vel)]>(world);
 
         var entityCount = 0;
         for (e in posOrVel) {
@@ -68,7 +68,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testNotOperator() {
-        var posNotVel = new hxbitecs.QueryMacro<MyQueryWorld, [pos, Not(vel)]>(world);
+        var posNotVel = new hxbitecs.HxQuery<MyQueryWorld, [pos, Not(vel)]>(world);
 
         var entityCount = 0;
         var oddEntityIds = [];
@@ -83,7 +83,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testAndOperator() {
-        var posAndVel = new hxbitecs.QueryMacro<MyQueryWorld, [And(pos, vel)]>(world);
+        var posAndVel = new hxbitecs.HxQuery<MyQueryWorld, [And(pos, vel)]>(world);
 
         var entityCount = 0;
         for (e in posAndVel) {
@@ -95,8 +95,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testComplexQuery() {
-        var complexQuery = new hxbitecs.QueryMacro<MyQueryWorld,
-            [pos, Or(health, isPoisoned), Not(vel)]>(world);
+        var complexQuery = new hxbitecs.HxQuery<MyQueryWorld, [pos, Or(health, isPoisoned), Not(vel)]>(world);
 
         var entityCount = 0;
         var foundEntityIds = [];
@@ -115,7 +114,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testAnyAlias() {
-        var posAnyVel = new hxbitecs.QueryMacro<MyQueryWorld, [Any(pos, vel)]>(world);
+        var posAnyVel = new hxbitecs.HxQuery<MyQueryWorld, [Any(pos, vel)]>(world);
 
         var entityCount = 0;
         for (e in posAnyVel) {
@@ -127,7 +126,7 @@ class TestQueryMacro extends Test {
     }
 
     public function testNoneAlias() {
-        var noneVelHealth = new hxbitecs.QueryMacro<MyQueryWorld, [pos, None(vel, health)]>(world);
+        var noneVelHealth = new hxbitecs.HxQuery<MyQueryWorld, [pos, None(vel, health)]>(world);
 
         var entityCount = 0;
         var foundEntityIds = [];
@@ -146,15 +145,15 @@ class TestQueryMacro extends Test {
 
     public function testEntityAccessor() {
         // Test EntityAccessor with pos component
-        var entityPos = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [pos]>(world, 1);
+        var entityPos = new hxbitecs.HxEntity<MyQueryWorld, [pos]>(world, 1);
 
         Assert.equals(1, entityPos.eid);
         Assert.equals(10.0, entityPos.pos.x);
         Assert.equals(5.0, entityPos.pos.y);
 
         // Test EntityAccessor with pos and vel components for even entity
-        var entityPosVel:hxbitecs.EntityAccessorMacro<MyQueryWorld, [pos, vel]>;
-        entityPosVel = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [pos, vel]>(world, 2);
+        var entityPosVel:hxbitecs.HxEntity<MyQueryWorld, [pos, vel]>;
+        entityPosVel = new hxbitecs.HxEntity<MyQueryWorld, [pos, vel]>(world, 2);
 
         Assert.equals(2, entityPosVel.eid);
         Assert.equals(20.0, entityPosVel.pos.x);
@@ -165,7 +164,7 @@ class TestQueryMacro extends Test {
 
     public function testEntityAccessorModification() {
         // Test modifying components through EntityAccessor
-        var entity = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [pos, vel]>(world, 4);
+        var entity = new hxbitecs.HxEntity<MyQueryWorld, [pos, vel]>(world, 4);
 
         // Store original values
         var originalPosX = entity.pos.x; // Should be 40.0
@@ -185,7 +184,7 @@ class TestQueryMacro extends Test {
 
     public function testEntityAccessorWithHealth() {
         // Test EntityAccessor with AoS component (health)
-        var entityHealth = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [health]>(world, 3);
+        var entityHealth = new hxbitecs.HxEntity<MyQueryWorld, [health]>(world, 3);
 
         Assert.equals(3, entityHealth.eid);
         Assert.equals(130, entityHealth.health.hp);
@@ -197,22 +196,22 @@ class TestQueryMacro extends Test {
 
     public function testEntityAccessorWithTag() {
         // Test EntityAccessor with tag component (isPoisoned)
-        var entityPoisoned = new hxbitecs.EntityAccessorMacro<MyQueryWorld, [isPoisoned]>(world, 5);
+        var entityPoisoned = new hxbitecs.HxEntity<MyQueryWorld, [isPoisoned]>(world, 5);
 
         Assert.equals(5, entityPoisoned.eid);
         // Tag components don't have properties, just existence
     }
 
     public function testAdHocQuery() {
-        // Test the new ad-hoc query syntax using hxbitecs.Query.query()
-        for (e in hxbitecs.Query.query(world, [pos, vel])) {
+        // Test the new ad-hoc query syntax using hxbitecs.Hx.query()
+        for (e in hxbitecs.Hx.query(world, [pos, vel])) {
             e.pos.x += e.vel.x;
             e.pos.y += e.vel.y;
         }
 
-        // Verify results are same as existing QueryMacro approach
+        // Verify results are same as existing HxQuery approach
         var entityCount = 0;
-        for (e in hxbitecs.Query.query(world, [pos, vel])) {
+        for (e in hxbitecs.Hx.query(world, [pos, vel])) {
             entityCount++;
             Assert.equals((e.eid * 10.0) + (e.eid + 1.0), e.pos.x);
             Assert.equals((e.eid * 5.0) + ((e.eid + 1.0) * 2.0), e.pos.y);
@@ -223,7 +222,7 @@ class TestQueryMacro extends Test {
     public function testAdHocQueryOperators() {
         // Test Or operator with ad-hoc query
         var entityCount = 0;
-        for (e in hxbitecs.Query.query(world, [Or(pos, vel)])) {
+        for (e in hxbitecs.Hx.query(world, [Or(pos, vel)])) {
             entityCount++;
         }
         Assert.equals(10, entityCount);
@@ -231,7 +230,7 @@ class TestQueryMacro extends Test {
         // Test Not operator with ad-hoc query
         entityCount = 0;
         var oddEntityIds = [];
-        for (e in hxbitecs.Query.query(world, [pos, Not(vel)])) {
+        for (e in hxbitecs.Hx.query(world, [pos, Not(vel)])) {
             oddEntityIds.push(e.eid);
             entityCount++;
         }
@@ -243,7 +242,7 @@ class TestQueryMacro extends Test {
         // Test complex ad-hoc query with multiple operators
         var entityCount = 0;
         var foundEntityIds = [];
-        for (e in hxbitecs.Query.query(world, [pos, Or(health, isPoisoned), Not(vel)])) {
+        for (e in hxbitecs.Hx.query(world, [pos, Or(health, isPoisoned), Not(vel)])) {
             foundEntityIds.push(e.eid);
             entityCount++;
         }
@@ -252,4 +251,3 @@ class TestQueryMacro extends Test {
     }
 
 }
-

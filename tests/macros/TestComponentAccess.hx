@@ -66,8 +66,8 @@ class TestComponentAccess extends Test {
 
     public function testComponentOrderingConsistency() {
         // Test that [pos, vel] and [vel, pos] access the same underlying data correctly
-        var queryPosVel = new hxbitecs.QueryMacro<ComponentAccessWorld, [pos, vel]>(world);
-        var queryVelPos = new hxbitecs.QueryMacro<ComponentAccessWorld, [vel, pos]>(world);
+        var queryPosVel = new hxbitecs.HxQuery<ComponentAccessWorld, [pos, vel]>(world);
+        var queryVelPos = new hxbitecs.HxQuery<ComponentAccessWorld, [vel, pos]>(world);
 
         var posVelEntities = [];
         var velPosEntities = [];
@@ -108,7 +108,7 @@ class TestComponentAccess extends Test {
 
     public function testCrossReferenceDataIntegrity() {
         // Modify data through EntityAccessor
-        var accessor = new hxbitecs.EntityAccessorMacro<ComponentAccessWorld, [pos, health]>(world, 1);
+        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [pos, health]>(world, 1);
 
         // Verify initial values
         Assert.equals(10.0, accessor.pos.x);
@@ -120,7 +120,7 @@ class TestComponentAccess extends Test {
         accessor.health.hp = 77;
 
         // Verify changes through QueryMacro
-        var query = new hxbitecs.QueryMacro<ComponentAccessWorld, [pos, health]>(world);
+        var query = new hxbitecs.HxQuery<ComponentAccessWorld, [pos, health]>(world);
         var found = false;
 
         for (e in query) {
@@ -149,7 +149,7 @@ class TestComponentAccess extends Test {
 
     public function testComplexQueryComponentAccess() {
         // Test that complex queries properly access component data
-        var complexQuery = new hxbitecs.QueryMacro<ComponentAccessWorld,
+        var complexQuery = new hxbitecs.HxQuery<ComponentAccessWorld,
             [pos, Or(health, shield), Not(isPoisoned)]>(world);
 
         var foundEntities = [];
@@ -181,8 +181,7 @@ class TestComponentAccess extends Test {
 
     public function testDifferentComponentTypeAccess() {
         // Test accessing different component patterns in same query
-        var mixedQuery = new hxbitecs.QueryMacro<ComponentAccessWorld,
-            [pos, damage, shield]>(world);
+        var mixedQuery = new hxbitecs.HxQuery<ComponentAccessWorld, [pos, damage, shield]>(world);
 
         var entityCount = 0;
         for (e in mixedQuery) {
@@ -196,7 +195,7 @@ class TestComponentAccess extends Test {
         Assert.equals(0, entityCount);
 
         // Test a combination that should work
-        var workingQuery = new hxbitecs.QueryMacro<ComponentAccessWorld, [pos, damage]>(world);
+        var workingQuery = new hxbitecs.HxQuery<ComponentAccessWorld, [pos, damage]>(world);
         var workingCount = 0;
 
         for (e in workingQuery) {
@@ -217,7 +216,7 @@ class TestComponentAccess extends Test {
 
     public function testTagComponentAccess() {
         // Test that tag components work correctly in queries and accessors
-        var tagQuery = new hxbitecs.QueryMacro<ComponentAccessWorld, [pos, isPoisoned]>(world);
+        var tagQuery = new hxbitecs.HxQuery<ComponentAccessWorld, [pos, isPoisoned]>(world);
 
         var taggedEntities = [];
         for (e in tagQuery) {
@@ -238,13 +237,13 @@ class TestComponentAccess extends Test {
         Assert.same([2], taggedEntities);
 
         // Test EntityAccessor with tag
-        var tagAccessor = new hxbitecs.EntityAccessorMacro<ComponentAccessWorld, [isPoisoned]>(world, 2);
+        var tagAccessor = new hxbitecs.HxEntity<ComponentAccessWorld, [isPoisoned]>(world, 2);
         Assert.equals(2, tagAccessor.eid);
     }
 
     public function testMultipleComponentIndexing() {
         // Test that when we have many components, indexing is correct
-        var allComponentQuery = new hxbitecs.QueryMacro<ComponentAccessWorld,
+        var allComponentQuery = new hxbitecs.HxQuery<ComponentAccessWorld,
             [pos, vel, health, damage, shield]>(world);
 
         var foundAny = false;
@@ -257,7 +256,7 @@ class TestComponentAccess extends Test {
         Assert.isFalse(foundAny);
 
         // Test a realistic multi-component scenario
-        var tripleQuery = new hxbitecs.QueryMacro<ComponentAccessWorld, [pos, vel, health]>(world);
+        var tripleQuery = new hxbitecs.HxQuery<ComponentAccessWorld, [pos, vel, health]>(world);
 
         for (e in tripleQuery) {
             // Only entity 1 should match
@@ -270,7 +269,7 @@ class TestComponentAccess extends Test {
 
     public function testNestedOperatorComponentAccess() {
         // Test nested operators to ensure component indexing works with complex term parsing
-        var nestedQuery = new hxbitecs.QueryMacro<ComponentAccessWorld,
+        var nestedQuery = new hxbitecs.HxQuery<ComponentAccessWorld,
             [pos, Or(health, shield), Not(isInvulnerable)]>(world);
 
         var foundEntities = [];
@@ -299,7 +298,7 @@ class TestComponentAccess extends Test {
         // This test demonstrates the key improvement: entity.damage = value should work
 
         // Test with QueryMacro
-        var query = new hxbitecs.QueryMacro<ComponentAccessWorld, [pos, damage]>(world);
+        var query = new hxbitecs.HxQuery<ComponentAccessWorld, [pos, damage]>(world);
 
         for (e in query) {
             if (e.eid == 2) {
@@ -314,7 +313,7 @@ class TestComponentAccess extends Test {
         }
 
         // Test with EntityAccessor
-        var accessor = new hxbitecs.EntityAccessorMacro<ComponentAccessWorld, [damage]>(world, 4);
+        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [damage]>(world, 4);
 
         // Direct assignment should work here too
         accessor.damage = 777;
@@ -332,7 +331,7 @@ class TestComponentAccess extends Test {
 
     public function testSimpleArrayWrapperBehavior() {
         // Test that SimpleArray components (like damage) work correctly
-        var damageQuery = new hxbitecs.QueryMacro<ComponentAccessWorld, [damage]>(world);
+        var damageQuery = new hxbitecs.HxQuery<ComponentAccessWorld, [damage]>(world);
 
         var foundEntities = [];
         var damageValues = [];
@@ -360,7 +359,7 @@ class TestComponentAccess extends Test {
         }
 
         // Test EntityAccessor with SimpleArray assignment
-        var damageAccessor = new hxbitecs.EntityAccessorMacro<ComponentAccessWorld, [damage]>(world, 2);
+        var damageAccessor = new hxbitecs.HxEntity<ComponentAccessWorld, [damage]>(world, 2);
         Assert.equals(100, damageAccessor.damage);
 
         // Test cross-reference integrity: modify via EntityAccessor, verify via QueryMacro
@@ -380,15 +379,15 @@ class TestComponentAccess extends Test {
             }
         }
 
-        var damageAccessor4 = new hxbitecs.EntityAccessorMacro<ComponentAccessWorld, [damage]>(world, 4);
+        var damageAccessor4 = new hxbitecs.HxEntity<ComponentAccessWorld, [damage]>(world, 4);
         Assert.equals(50, damageAccessor4.damage); // Should see the change made via QueryMacro
     }
 
     public function testComponentDataConsistencyAcrossQueries() {
         // Verify that the same component accessed through different queries gives same data
-        var query1 = new hxbitecs.QueryMacro<ComponentAccessWorld, [pos]>(world);
-        var query2 = new hxbitecs.QueryMacro<ComponentAccessWorld, [pos, health]>(world);
-        var query3 = new hxbitecs.QueryMacro<ComponentAccessWorld, [health, pos]>(world);
+        var query1 = new hxbitecs.HxQuery<ComponentAccessWorld, [pos]>(world);
+        var query2 = new hxbitecs.HxQuery<ComponentAccessWorld, [pos, health]>(world);
+        var query3 = new hxbitecs.HxQuery<ComponentAccessWorld, [health, pos]>(world);
 
         var posDataFromQuery1 = new Map<Int, {x:Float, y:Float}>();
         var posDataFromQuery2 = new Map<Int, {x:Float, y:Float}>();
@@ -418,6 +417,7 @@ class TestComponentAccess extends Test {
             Assert.equals(data1.y, data3.y);
         }
     }
+
 }
 
 @:publicFields class ComponentAccessWorld {
@@ -438,4 +438,5 @@ class TestComponentAccess extends Test {
     // Tag components
     var isPoisoned = {};
     var isInvulnerable = {};
+
 }

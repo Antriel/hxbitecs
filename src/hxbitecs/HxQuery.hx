@@ -8,7 +8,7 @@ import haxe.macro.TypeTools;
 #end
 
 #if !macro
-@:genericBuild(hxbitecs.QueryMacro.build()) class QueryMacro<Data, Rest> { }
+@:genericBuild(hxbitecs.HxQuery.build()) class HxQuery<Data, Rest> { }
 
 #else
 function build() {
@@ -22,7 +22,7 @@ function build() {
             return MacroUtils.buildGenericType(name, ct, () ->
                 generateQuery(name, target, terms, queryTermInfo));
         case _:
-            Context.error("QueryMacro requires exactly one type parameter", Context.currentPos());
+            Context.error("HxQuery requires exactly one type parameter", Context.currentPos());
     }
 }
 

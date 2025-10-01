@@ -8,28 +8,77 @@ import haxe.macro.TypeTools;
 #end
 
 /**
- * Type-safe component initializer macro that wraps bitecs.addComponent
- * with field validation and ergonomic initialization syntax.
- *
- * Usage: InitComponent.add(world, eid, pos, {x: 10, y: 20})
+ * Main HxBitECS utility class providing macro-powered wrapper functions.
  */
-class InitComponent {
+class Hx {
 
     /**
-     * Adds a component to an entity and initializes its fields.
-     * @param world The world instance
-     * @param eid The entity ID
-     * @param component The component store (can be `comp` or `world.comp`)
-     * @param init Optional initializer object with field values
+     * Expression macro for ad-hoc queries that use bitecs.Bitecs.query() directly
+     * without requiring persistent query registration.
+     *
+     * Usage: for (e in Hx.query(world, [pos, vel])) { ... }
      */
-    public static macro function add(world:Expr, eid:Expr, component:Expr, ?init:Expr):Expr {
-        final e = addImpl(world, eid, component, init);
+    public static macro function query(world:Expr, terms:Expr):Expr {
+        var e = queryImpl(world, terms);
+        trace(new haxe.macro.Printer().printExpr(e));
+        return e;
+    }
+
+    /**
+     * Type-safe component initializer macro that wraps bitecs.addComponent
+     * with field validation and ergonomic initialization syntax.
+     *
+     * Usage: Hx.addComponent(world, eid, pos, {x: 10, y: 20})
+     */
+    public static macro function addComponent(world:Expr, eid:Expr, component:Expr, ?init:Expr):Expr {
+        final e = addComponentImpl(world, eid, component, init);
         trace(new haxe.macro.Printer().printExpr(e));
         return e;
     }
 
     #if macro
-    static function addImpl(world:Expr, eid:Expr, component:Expr, ?init:Expr):Expr {
+    static function queryImpl(worldExpr:Expr, termsExpr:Expr):Expr {
+        final pos = Context.currentPos();
+
+        // Get world type from expression
+        var worldType = Context.typeof(worldExpr);
+
+        // Parse terms from expression
+        var queryTermInfo = TermUtils.parseTermsFromExpr(worldType, termsExpr);
+
+        // Generate EntityWrapperMacro type for the iterator
+        var wrapperComplexType = TPath({
+            pack: ['hxbitecs'],
+            name: 'EntityWrapperMacro',
+            params: [
+                TPType(TypeTools.toComplexType(worldType)),
+                TPExpr(termsExpr)
+            ]
+        });
+
+        // Generate iterator type
+        var iteratorType:TypePath = {
+            pack: ['hxbitecs'],
+            name: 'QueryIterator',
+            params: [TPType(wrapperComplexType)]
+        };
+
+        // Generate component store expressions from allComponents
+        // This ensures we only pass actual component stores, not operator expressions
+        var componentStoreExprs:Array<Expr> = [];
+        for (termInfo in queryTermInfo.allComponents) {
+            var componentName = termInfo.name;
+            componentStoreExprs.push(macro $worldExpr.$componentName);
+        }
+
+        // Generate block expression that creates the iterator directly
+        return macro {
+            var queryResult = bitecs.Bitecs.query($worldExpr, $a{queryTermInfo.queryExprs});
+            new $iteratorType(queryResult, $a{componentStoreExprs});
+        };
+    }
+
+    static function addComponentImpl(world:Expr, eid:Expr, component:Expr, ?init:Expr):Expr {
         var pos = Context.currentPos();
 
         // Normalize init - if it's null or not provided, treat as no initialization
