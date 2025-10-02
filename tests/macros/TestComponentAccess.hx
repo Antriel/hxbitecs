@@ -418,6 +418,122 @@ class TestComponentAccess extends Test {
         }
     }
 
+    public function testHxGetSoAComponent() {
+        // Test Hx.get() with SoA component (pos)
+        var pos = hxbitecs.Hx.get(1, world.pos);
+
+        // Verify initial values
+        Assert.equals(10.0, pos.x);
+        Assert.equals(20.0, pos.y);
+
+        // Modify through Hx.get wrapper
+        pos.x = 999.0;
+        pos.y = 888.0;
+
+        // Verify changes are visible through HxEntity
+        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [pos]>(world, 1);
+        Assert.equals(999.0, accessor.pos.x);
+        Assert.equals(888.0, accessor.pos.y);
+
+        // Verify changes are visible through HxQuery
+        var query = new hxbitecs.HxQuery<ComponentAccessWorld, [pos]>(world);
+        for (e in query) {
+            if (e.eid == 1) {
+                Assert.equals(999.0, e.pos.x);
+                Assert.equals(888.0, e.pos.y);
+            }
+        }
+    }
+
+    public function testHxGetAoSComponent() {
+        // Test Hx.get() with AoS component (health)
+        var health = hxbitecs.Hx.get(1, world.health);
+
+        // Verify initial values
+        Assert.equals(100, health.hp);
+        Assert.equals(150, health.maxHp);
+
+        // Modify through Hx.get wrapper
+        health.hp = 50;
+        health.maxHp = 200;
+
+        // Verify changes are visible through HxEntity
+        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [health]>(world, 1);
+        Assert.equals(50, accessor.health.hp);
+        Assert.equals(200, accessor.health.maxHp);
+
+        // Verify changes are visible through HxQuery
+        var query = new hxbitecs.HxQuery<ComponentAccessWorld, [health]>(world);
+        for (e in query) {
+            if (e.eid == 1) {
+                Assert.equals(50, e.health.hp);
+                Assert.equals(200, e.health.maxHp);
+            }
+        }
+    }
+
+    public function testHxGetSimpleArrayComponent() {
+        // Test Hx.get() with SimpleArray component (damage)
+        var damage = hxbitecs.Hx.get(2, world.damage);
+
+        // Verify initial value
+        Assert.equals(25, damage.value);
+
+        // Modify through Hx.get wrapper using .value property
+        damage.value = 150;
+
+        // Verify change
+        Assert.equals(150, damage.value);
+
+        // Verify changes are visible through HxEntity
+        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [damage]>(world, 2);
+        Assert.equals(150, accessor.damage);
+
+        // Verify changes are visible through HxQuery
+        var query = new hxbitecs.HxQuery<ComponentAccessWorld, [damage]>(world);
+        for (e in query) {
+            if (e.eid == 2) {
+                Assert.equals(150, e.damage);
+            }
+        }
+    }
+
+    public function testHxGetCrossReferenceIntegrity() {
+        // Test that modifications through Hx.get, HxEntity, and HxQuery are all consistent
+
+        // Modify via Hx.get
+        var vel = hxbitecs.Hx.get(1, world.vel);
+        vel.x = 10.0;
+        vel.y = 20.0;
+
+        // Verify via HxEntity
+        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [vel]>(world, 1);
+        Assert.equals(10.0, accessor.vel.x);
+        Assert.equals(20.0, accessor.vel.y);
+
+        // Modify via HxEntity
+        accessor.vel.x = 30.0;
+
+        // Verify via Hx.get
+        var vel2 = hxbitecs.Hx.get(1, world.vel);
+        Assert.equals(30.0, vel2.x);
+        Assert.equals(20.0, vel2.y);
+
+        // Modify via HxQuery
+        var query = new hxbitecs.HxQuery<ComponentAccessWorld, [vel]>(world);
+        for (e in query) {
+            if (e.eid == 1) {
+                e.vel.y = 40.0;
+                break;
+            }
+        }
+
+        // Verify via Hx.get again
+        var vel3 = hxbitecs.Hx.get(1, world.vel);
+        Assert.equals(30.0, vel3.x);
+        Assert.equals(40.0, vel3.y);
+    }
+
 }
 
 @:publicFields class ComponentAccessWorld {

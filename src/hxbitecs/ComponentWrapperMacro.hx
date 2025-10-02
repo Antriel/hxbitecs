@@ -37,7 +37,7 @@ function build() {
                     var fields = extractAoSFields(elementType);
                     generateStoreWrapper(name, componentType, fields, generateAoSAccess);
                 case SimpleArray(elementType):
-                    throw "Should be handled at entity level";
+                    generateSimpleArrayWrapper(name, componentType, elementType);
                 case Tag:
                     generateTagWrapper(name, componentType);
             });
@@ -133,6 +133,48 @@ function generateTagWrapper(name:String, componentType:Type):Array<TypeDefinitio
         kind: TDAbstract(TPath({ pack: [], name: "Int" })),
         fields: wrapperFields
     }];
+}
+
+function generateSimpleArrayWrapper(name:String, componentType:Type, elementType:Type):Array<TypeDefinition> {
+    var pos = Context.currentPos();
+
+    // Create the underlying type: {store: Array<T>, eid: Int}
+    var elementComplexType = TypeTools.toComplexType(elementType);
+    var underlyingType:ComplexType = TAnonymous([
+        {
+            name: "store",
+            kind: FVar(TypeTools.toComplexType(componentType)),
+            pos: pos,
+            access: []
+        },
+        {
+            name: "eid",
+            kind: FVar(TPath({ pack: [], name: "Int" })),
+            pos: pos,
+            access: []
+        }
+    ]);
+
+    var wrapperFields:Array<Field> = [];
+
+    // Constructor
+    wrapperFields.push({
+        name: "new",
+        kind: FFun({
+            args: [{ name: "v", type: underlyingType }],
+            ret: null,
+            expr: macro this = v
+        }),
+        pos: pos,
+        access: [APublic, AInline]
+    });
+
+    // Generate property with get/set for 'value' field
+    var getterExpr = macro this.store[this.eid];
+    var propFields = MacroUtils.generatePropertyWithGetSet("value", elementComplexType, getterExpr);
+    wrapperFields = wrapperFields.concat(propFields);
+
+    return [createWrapperTypeDefinition(name, underlyingType, wrapperFields)];
 }
 
 function createWrapperTypeDefinition(name:String, underlyingType:ComplexType,

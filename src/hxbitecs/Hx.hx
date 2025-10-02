@@ -36,6 +36,18 @@ class Hx {
         return e;
     }
 
+    /**
+     * Simple single-component accessor that returns a typed wrapper for direct component access.
+     * Simpler alternative to HxEntity when you only need one component.
+     *
+     * Usage: var pos = Hx.get(eid, world.pos); pos.x = 10;
+     */
+    public static macro function get(eid:Expr, component:Expr):Expr {
+        final e = getImpl(eid, component);
+        trace(new haxe.macro.Printer().printExpr(e));
+        return e;
+    }
+
     #if macro
     static function queryImpl(worldExpr:Expr, termsExpr:Expr):Expr {
         final pos = Context.currentPos();
@@ -169,6 +181,31 @@ class Hx {
             bitecs.Bitecs.addComponent($world, $eid, __comp);
             var __w = new $wrapperTypePath({ store: __comp, eid: $eid });
             $b{assignments};
+        };
+    }
+    static function getImpl(eid:Expr, component:Expr):Expr {
+        var pos = Context.currentPos();
+
+        // Type the component expression to determine its type
+        var componentType = Context.typeof(component);
+
+        // Analyze component pattern
+        var pattern = MacroUtils.analyzeComponentType(componentType);
+
+        // Generate wrapper type path
+        var wrapperTypePath:TypePath = {
+            pack: ['hxbitecs'],
+            name: 'ComponentWrapperMacro',
+            params: [TPType(TypeTools.toComplexType(componentType))]
+        };
+
+        // Generate code based on pattern
+        return switch pattern {
+            case SoA(_) | AoS(_) | SimpleArray(_):
+                macro new $wrapperTypePath({ store: $component, eid: $eid });
+            case Tag:
+                // Tags have no data, emit error.
+                Context.error('Tag components have no data fields and cannot be accessed directly. Use their presence/absence instead.', pos);
         };
     }
     #end
