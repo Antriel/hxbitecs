@@ -164,7 +164,7 @@ class Hx {
         // Generate wrapper type path
         var wrapperTypePath:TypePath = {
             pack: ['hxbitecs'],
-            name: 'ComponentWrapperMacro',
+            name: 'HxComponent',
             params: [TPType(TypeTools.toComplexType(componentType))]
         };
 
@@ -196,7 +196,7 @@ class Hx {
         // Generate wrapper type path
         var wrapperTypePath:TypePath = {
             pack: ['hxbitecs'],
-            name: 'ComponentWrapperMacro',
+            name: 'HxComponent',
             params: [TPType(TypeTools.toComplexType(componentType))]
         };
 

@@ -534,14 +534,84 @@ class TestComponentAccess extends Test {
         Assert.equals(40.0, vel3.y);
     }
 
+    public function testWrapperUsingHelpers() {
+        // Test that @:wrapperUsing metadata enables helper methods on Hx.get() wrappers
+
+        // Get position wrapper using Hx.get
+        var pos = hxbitecs.Hx.get(1, world.pos);
+
+        // Test setTo helper method
+        pos.setTo(100.0, 200.0);
+        Assert.equals(100.0, pos.x);
+        Assert.equals(200.0, pos.y);
+
+        // Test distanceToOrigin helper method
+        var distance = pos.distanceToOrigin();
+        Assert.equals(Math.sqrt(100.0 * 100.0 + 200.0 * 200.0), distance);
+
+        // Test addOffset helper method
+        pos.addOffset(50.0, -50.0);
+        Assert.equals(150.0, pos.x);
+        Assert.equals(150.0, pos.y);
+
+        // Verify changes are visible through HxEntity
+        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [pos]>(world, 1);
+        Assert.equals(150.0, accessor.pos.x);
+        Assert.equals(150.0, accessor.pos.y);
+
+        // Test that helper methods also work on HxEntity wrappers
+        accessor.pos.setTo(300.0, 400.0);
+        Assert.equals(300.0, accessor.pos.x);
+        Assert.equals(400.0, accessor.pos.y);
+
+        var distance2 = accessor.pos.distanceToOrigin();
+        Assert.equals(Math.sqrt(300.0 * 300.0 + 400.0 * 400.0), distance2);
+
+        // Verify changes are visible through HxQuery
+        var query = new hxbitecs.HxQuery<ComponentAccessWorld, [pos]>(world);
+        for (e in query) {
+            if (e.eid == 1) {
+                Assert.equals(300.0, e.pos.x);
+                Assert.equals(400.0, e.pos.y);
+
+                // Test helper methods work on query wrappers too
+                e.pos.addOffset(10.0, 10.0);
+                Assert.equals(310.0, e.pos.x);
+                Assert.equals(410.0, e.pos.y);
+            }
+        }
+    }
+
 }
+
+// Position helpers for testing @:wrapperUsing
+class PositionHelpers {
+
+    public static inline function setTo(pos:hxbitecs.HxComponent<Position>, x:Float, y:Float):Void {
+        pos.x = x;
+        pos.y = y;
+    }
+
+    public static inline function distanceToOrigin(pos:hxbitecs.HxComponent<Position>):Float {
+        return Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+    }
+
+    public static inline function addOffset(pos:hxbitecs.HxComponent<Position>, dx:Float, dy:Float):Void {
+        pos.x += dx;
+        pos.y += dy;
+    }
+
+}
+
+@:wrapperUsing(macros.TestComponentAccess.PositionHelpers)
+typedef Position = hxbitecs.SoA<{x:Float, y:Float}>;
 
 @:publicFields class ComponentAccessWorld {
 
     function new() { }
 
     // SoA Float components
-    var pos = { x: new Array<Float>(), y: new Array<Float>() };
+    var pos:Position = new Position();
     var vel = { x: new Array<Float>(), y: new Array<Float>() };
 
     // AoS components

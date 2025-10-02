@@ -9,7 +9,7 @@ import hxbitecs.MacroDebug;
 #end
 
 #if !macro
-@:genericBuild(hxbitecs.ComponentWrapperMacro.build()) class ComponentWrapperMacro<T> { }
+@:genericBuild(hxbitecs.HxComponent.build()) class HxComponent<T> { }
 
 #else
 function build() {
@@ -18,6 +18,9 @@ function build() {
             var pattern = MacroUtils.analyzeComponentType(componentType);
             var baseName = MacroUtils.getBaseName(componentType);
             var pos = Context.currentPos();
+
+            // Extract @:wrapperUsing metadata if present
+            var usingPath = extractWrapperUsingMetadata(componentType);
 
             var name = switch pattern {
                 case SoA(_): 'SoAWrapper_${baseName}';
@@ -33,18 +36,45 @@ function build() {
             var ct = TPath({ pack: ['hxbitecs'], name: name });
             return MacroUtils.buildGenericType(name, ct, () -> switch pattern {
                 case SoA(fields):
-                    generateStoreWrapper(name, componentType, fields, generateSoAAccess);
+                    generateStoreWrapper(name, componentType, fields, generateSoAAccess, usingPath);
                 case AoS(elementType):
                     var fields = extractAoSFields(elementType);
-                    generateStoreWrapper(name, componentType, fields, generateAoSAccess);
+                    generateStoreWrapper(name, componentType, fields, generateAoSAccess, usingPath);
                 case SimpleArray(elementType):
-                    generateSimpleArrayWrapper(name, componentType, elementType);
+                    generateSimpleArrayWrapper(name, componentType, elementType, usingPath);
                 case Tag:
-                    generateTagWrapper(name, componentType);
+                    generateTagWrapper(name, componentType, usingPath);
             });
         case _:
-            Context.error("ComponentWrapperMacro requires exactly one type parameter", Context.currentPos());
+            Context.error("HxComponent requires exactly one type parameter", Context.currentPos());
     }
+}
+
+function extractWrapperUsingMetadata(componentType:Type):Null<Expr> {
+    // Follow the type to get to the actual definition (handles typedefs)
+    var followedType = Context.follow(componentType);
+
+    // Try to get metadata from the original type (before following)
+    var metadata = switch componentType {
+        case TType(t, _):
+            t.get().meta;
+        case TInst(t, _):
+            t.get().meta;
+        case TAbstract(t, _):
+            t.get().meta;
+        case _:
+            null;
+    };
+
+    if (metadata != null && metadata.has(':wrapperUsing')) {
+        var metaEntry = metadata.extract(':wrapperUsing')[0];
+        if (metaEntry != null && metaEntry.params != null && metaEntry.params.length > 0) {
+            // Return the expression directly without parsing
+            return metaEntry.params[0];
+        }
+    }
+
+    return null;
 }
 
 function extractAoSFields(elementType:Type):Array<{name:String, type:Type}> {
@@ -65,7 +95,7 @@ function generateAoSAccess(fieldName:String):Expr {
 }
 
 function generateStoreWrapper(name:String, componentType:Type, fields:Array<{name:String, type:Type}>,
-        accessGenerator:(fieldName:String) -> Expr):Array<TypeDefinition> {
+        accessGenerator:(fieldName:String) -> Expr, usingPath:Null<Expr>):Array<TypeDefinition> {
     var pos = Context.currentPos();
 
     // Create the underlying type: {store: ComponentType, eid: Int}
@@ -108,10 +138,10 @@ function generateStoreWrapper(name:String, componentType:Type, fields:Array<{nam
         wrapperFields = wrapperFields.concat(propertyFields);
     }
 
-    return [createWrapperTypeDefinition(name, underlyingType, wrapperFields)];
+    return [createWrapperTypeDefinition(name, underlyingType, wrapperFields, usingPath)];
 }
 
-function generateTagWrapper(name:String, componentType:Type):Array<TypeDefinition> {
+function generateTagWrapper(name:String, componentType:Type, usingPath:Null<Expr>):Array<TypeDefinition> {
     var pos = Context.currentPos();
     var wrapperFields:Array<Field> = [];
 
@@ -127,16 +157,29 @@ function generateTagWrapper(name:String, componentType:Type):Array<TypeDefinitio
         access: [APublic, AInline]
     });
 
-    return [{
+    // Build metadata array
+    var metadata:Metadata = [];
+    if (usingPath != null) {
+        metadata.push({
+            name: ':using',
+            params: [usingPath],
+            pos: pos
+        });
+    }
+
+    var td = {
         name: name,
         pack: ['hxbitecs'],
         pos: pos,
         kind: TDAbstract(TPath({ pack: [], name: "Int" })),
-        fields: wrapperFields
-    }];
+        fields: wrapperFields,
+        meta: metadata
+    };
+    MacroDebug.printTypeDefinition(td, name);
+    return [td];
 }
 
-function generateSimpleArrayWrapper(name:String, componentType:Type, elementType:Type):Array<TypeDefinition> {
+function generateSimpleArrayWrapper(name:String, componentType:Type, elementType:Type, usingPath:Null<Expr>):Array<TypeDefinition> {
     var pos = Context.currentPos();
 
     // Create the underlying type: {store: Array<T>, eid: Int}
@@ -175,18 +218,30 @@ function generateSimpleArrayWrapper(name:String, componentType:Type, elementType
     var propFields = MacroUtils.generatePropertyWithGetSet("value", elementComplexType, getterExpr);
     wrapperFields = wrapperFields.concat(propFields);
 
-    return [createWrapperTypeDefinition(name, underlyingType, wrapperFields)];
+    return [createWrapperTypeDefinition(name, underlyingType, wrapperFields, usingPath)];
 }
 
 function createWrapperTypeDefinition(name:String, underlyingType:ComplexType,
-        fields:Array<Field>):TypeDefinition {
+        fields:Array<Field>, usingPath:Null<Expr>):TypeDefinition {
     var pos = Context.currentPos();
+
+    // Build metadata array
+    var metadata:Metadata = [];
+    if (usingPath != null) {
+        metadata.push({
+            name: ':using',
+            params: [usingPath],
+            pos: pos
+        });
+    }
+
     var td = {
         name: name,
         pack: ['hxbitecs'],
         pos: pos,
         kind: TDAbstract(underlyingType),
-        fields: fields
+        fields: fields,
+        meta: metadata
     };
     MacroDebug.printTypeDefinition(td, name);
     return td;

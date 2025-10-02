@@ -66,10 +66,10 @@ function generateEntityComponentInfo(termInfos:Array<TermUtils.TermInfo>):Array<
                 // For SimpleArray, use raw array type since we store it directly
                 TypeTools.toComplexType(termInfo.componentType);
             case SoA(_) | AoS(_) | Tag:
-                // For other patterns, use ComponentWrapperMacro
+                // For other patterns, use HxComponent
                 TPath({
                     pack: ['hxbitecs'],
-                    name: 'ComponentWrapperMacro',
+                    name: 'HxComponent',
                     params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
                 });
         };
