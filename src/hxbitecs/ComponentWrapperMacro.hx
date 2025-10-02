@@ -5,6 +5,7 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.TypeTools;
+import hxbitecs.MacroDebug;
 #end
 
 #if !macro
@@ -187,7 +188,7 @@ function createWrapperTypeDefinition(name:String, underlyingType:ComplexType,
         kind: TDAbstract(underlyingType),
         fields: fields
     };
-    trace(new haxe.macro.Printer().printTypeDefinition(td));
+    MacroDebug.printTypeDefinition(td, name);
     return td;
 }
 #end

@@ -5,6 +5,7 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.TypeTools;
+import hxbitecs.MacroDebug;
 
 @:persistent private var generated = new Map<String, Bool>();
 
@@ -50,12 +51,12 @@ function getTypeFields(type:Type):Array<String> {
 function buildGenericType(name:String, ct:ComplexType, generator:() -> Array<TypeDefinition>):ComplexType {
     if (isGenerated(name)) {
         if (isAlive(ct, Context.currentPos())) {
-            // Sys.println('Type $name already generated and alive.');
+            MacroDebug.print('Type $name already generated and alive.', name);
             return ct;
         }
-        // Sys.println('Type $name already generated but dead.');
+        MacroDebug.print('Type $name already generated but dead.', name);
     } else {
-        // Sys.println('Type $name not yet generated.');
+        MacroDebug.print('Type $name not yet generated.', name);
     }
 
     final types = generator();

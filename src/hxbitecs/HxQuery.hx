@@ -5,6 +5,7 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.TypeTools;
+import hxbitecs.MacroDebug;
 #end
 
 #if !macro
@@ -93,7 +94,7 @@ function generateQuery(name:String, target:Type, terms:Type,
         kind: TDAbstract(TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' })),
         fields: queryFields
     };
-    trace(new haxe.macro.Printer().printTypeDefinition(queryDef));
+    MacroDebug.printTypeDefinition(queryDef, name);
     return [queryDef];
 }
 #end

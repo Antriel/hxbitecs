@@ -5,6 +5,7 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.TypeTools;
+import hxbitecs.MacroDebug;
 #end
 
 #if macro
@@ -50,7 +51,7 @@ function generateEntityClass(name:String, world:Type, termInfos:Array<TermUtils.
         fields: fields
     };
 
-    trace(new haxe.macro.Printer().printTypeDefinition(classDef));
+    MacroDebug.printTypeDefinition(classDef, name);
     return [classDef];
 }
 

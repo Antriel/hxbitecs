@@ -5,6 +5,7 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.TypeTools;
+import hxbitecs.MacroDebug;
 #end
 
 /**
@@ -20,7 +21,7 @@ class Hx {
      */
     public static macro function query(world:Expr, terms:Expr):Expr {
         var e = queryImpl(world, terms);
-        trace(new haxe.macro.Printer().printExpr(e));
+        MacroDebug.printExpr(e, "Hx.query");
         return e;
     }
 
@@ -32,7 +33,7 @@ class Hx {
      */
     public static macro function addComponent(world:Expr, eid:Expr, component:Expr, ?init:Expr):Expr {
         final e = addComponentImpl(world, eid, component, init);
-        trace(new haxe.macro.Printer().printExpr(e));
+        MacroDebug.printExpr(e, "Hx.addComponent");
         return e;
     }
 
@@ -44,7 +45,7 @@ class Hx {
      */
     public static macro function get(eid:Expr, component:Expr):Expr {
         final e = getImpl(eid, component);
-        trace(new haxe.macro.Printer().printExpr(e));
+        MacroDebug.printExpr(e, "Hx.get");
         return e;
     }
 
