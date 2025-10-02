@@ -108,6 +108,14 @@ function analyzeComponentType(type:Type):ComponentPattern {
             // JS typed arrays: Float32Array, Int32Array, etc.
             var elementType = getTypedArrayElementType(typeName);
             SimpleArray(elementType);
+        case TType(t, params):
+            // Handle typedefs by unwrapping to underlying type
+            var underlyingType = t.get().type;
+            analyzeComponentType(underlyingType);
+        case TAbstract(t, params):
+            // Handle abstracts by unwrapping to underlying type
+            var underlyingType = t.get().type;
+            analyzeComponentType(underlyingType);
         case _:
             Context.error('Unsupported component type: $type', Context.currentPos());
     }
