@@ -2,6 +2,9 @@ package macros;
 
 import macros.data.MyQueryWorld;
 
+// Typedef for query to test HxEntity<QueryType> syntax
+typedef PosVelQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, vel]>;
+
 class TestQueryMacro extends Test {
 
     var world:MyQueryWorld;
@@ -273,6 +276,67 @@ class TestQueryMacro extends Test {
         }
         Assert.equals(3, entityCount);
         Assert.same([3, 5, 9], foundEntityIds);
+    }
+
+    public function testHxEntityWithQueryTypedef() {
+        // Test HxEntity<QueryType> syntax for type annotations
+        var query:PosVelQuery = new PosVelQuery(world);
+
+        // Use HxEntity<PosVelQuery> type annotation
+        var entity:hxbitecs.HxEntity<PosVelQuery> = query.entity(2);
+
+        Assert.equals(2, entity.eid);
+        Assert.equals(20.0, entity.pos.x);
+        Assert.equals(10.0, entity.pos.y);
+    }
+
+    public function testHxEntityTypeCompatibility() {
+        // Test that HxEntity<World, [terms]> and HxEntity<QueryType> are compatible
+        var query = new PosVelQuery(world);
+
+        // Create entity from query - type is HxEntity<PosVelQuery>
+        var entity1:hxbitecs.HxEntity<PosVelQuery> = query.entity(2);
+
+        // Create entity from world - type is HxEntity<MyQueryWorld, [pos, vel]>
+        var entity2:hxbitecs.HxEntity<MyQueryWorld, [pos, vel]> = hxbitecs.Hx.entity(world, 2, [pos, vel]);
+
+        // Both should be the same underlying type and work identically
+        entity1.pos.x = 100.0;
+        Assert.equals(100.0, entity2.pos.x);
+
+        entity2.vel.y = 200.0;
+        Assert.equals(200.0, entity1.vel.y);
+    }
+
+    public function testHxEntityFunctionParameter() {
+        // Test using HxEntity types as function parameters
+        var query = new PosVelQuery(world);
+
+        // Function accepting HxEntity<QueryType>
+        inline function modifyEntityFromQuery(e:hxbitecs.HxEntity<PosVelQuery>) {
+            e.pos.x = 50.0;
+            e.vel.x = 5.0;
+        }
+
+        // Function accepting HxEntity<World, [terms]>
+        inline function modifyEntityFromWorld(e:hxbitecs.HxEntity<MyQueryWorld, [pos, vel]>) {
+            e.pos.y = 60.0;
+            e.vel.y = 6.0;
+        }
+
+        var entity = query.entity(4);
+
+        modifyEntityFromQuery(entity);
+        Assert.equals(50.0, entity.pos.x);
+        Assert.equals(5.0, entity.vel.x);
+
+        modifyEntityFromWorld(entity);
+        Assert.equals(60.0, entity.pos.y);
+        Assert.equals(6.0, entity.vel.y);
+
+        // Verify changes persisted to world
+        Assert.equals(50.0, world.pos.x[4]);
+        Assert.equals(60.0, world.pos.y[4]);
     }
 
 }

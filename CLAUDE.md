@@ -24,12 +24,18 @@ HxbitECS is a Haxe wrapper for bitECS v0.4 with macro-powered enhancements. It p
 
 ### Key Macro Systems
 - **HxQuery** (`src/hxbitecs/HxQuery.hx`) - Generates type-safe persistent query classes (mirrors bitECS `defineQuery`)
+  - Provides `query.entity(eid)` method for creating entity wrappers from queries
 - **Hx** (`src/hxbitecs/Hx.hx`) - Main utility class providing:
   - `Hx.query()` - Expression macro for ad-hoc queries without registration (mirrors bitECS `query`)
   - `Hx.addComponent()` - Type-safe component initialization (mirrors bitECS `addComponent`)
-- **HxEntity** (`src/hxbitecs/HxEntity.hx`) - Provides direct entity component access with type safety
-- **EntityWrapperMacro** - Creates entity wrapper types with component access
-- **HxComponent** - Generates component access wrappers
+  - `Hx.entity()` - Expression macro for creating entity wrappers from world and component terms
+  - `Hx.get()` - Single-component accessor for simplified component access
+- **HxEntity** (`src/hxbitecs/HxEntity.hx`) - Type for entity wrappers with component access
+  - Supports two forms: `HxEntity<World, [terms]>` and `HxEntity<QueryType>`
+  - Both forms resolve to the same underlying EntityWrapper class for type compatibility
+  - Used for type annotations and function parameters
+- **EntityWrapperMacro** - Creates entity wrapper types with component access for queries and entity creation
+- **HxComponent** - Generates component access wrappers for individual components
 - **QueryIterator** (`src/hxbitecs/QueryIterator.hx`) - Unified iterator for both persistent and ad-hoc queries
 - **SoA** (`src/hxbitecs/SoA.hx`) - Helper for creating Structure of Arrays component definitions
 
@@ -63,6 +69,24 @@ Current test structure includes cases for store macros, query macros, and compon
 - Both query types use the unified `QueryIterator` with optimized component store access
 - Entity wrappers accept `(eid, components)` where components is an array of component stores
 - Macro-generated array literals enable Haxe optimizer to hoist component access outside loops
+
+### Entity Access Patterns
+Entity wrappers provide type-safe access to components for a specific entity:
+
+- **Creating entity wrappers**:
+  - `Hx.entity(world, eid, [terms])` - Create from world and component terms
+  - `query.entity(eid)` - Create from existing query (shares component stores with query)
+  - Both return type `HxEntity<World, [terms]>` for the same underlying EntityWrapper class
+
+- **Type annotations**:
+  - `HxEntity<World, [terms]>` - Direct specification of world and component terms
+  - `HxEntity<QueryType>` - Derive from query typedef (e.g., `typedef MyQuery = HxQuery<World, [pos, vel]>`)
+  - Both forms resolve to the same EntityWrapper class, ensuring full type compatibility
+
+- **Use cases**:
+  - Function parameters: `function moveEntity(e:HxEntity<MyQuery>) { e.pos.x += 10; }`
+  - Direct entity manipulation outside queries: `var e = Hx.entity(world, eid, [pos, vel]); e.pos.x = 0;`
+  - Sharing component stores with queries for efficient access patterns
 
 ### API Naming Convention
 All wrapper APIs use "Hx" prefix to:

@@ -52,9 +52,15 @@ class Hx {
     /**
      * Creates an entity wrapper for accessing multiple components from world and terms.
      *
-     * Usage: var e = Hx.entity(world, eid, [pos, vel]); e.pos.x = 10;
+     * Returns type `HxEntity<World, [terms]>` which can be used for type annotations.
      *
-     * For creating from query, use query.entity(eid) directly.
+     * Usage:
+     * ```haxe
+     * var e = Hx.entity(world, eid, [pos, vel]);
+     * e.pos.x = 10;
+     * ```
+     *
+     * For creating from query, use `query.entity(eid)` directly.
      */
     public static macro function entity(world:Expr, eid:Expr, terms:Expr):Expr {
         final e = entityImpl(world, eid, terms);

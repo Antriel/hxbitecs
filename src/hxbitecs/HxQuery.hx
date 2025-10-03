@@ -88,6 +88,7 @@ function generateQuery(name:String, target:Type, terms:Type,
     queryFields.push(iteratorMethod);
 
     // Generate entity() method that returns an entity wrapper for a specific eid
+    // Returns type HxEntity<World, [terms]> matching this query's component terms
     var wrapperTypePath:TypePath = {
         pack: ['hxbitecs'],
         name: 'EntityWrapperMacro',
@@ -108,7 +109,8 @@ function generateQuery(name:String, target:Type, terms:Type,
             expr: macro return new $wrapperTypePath(eid, $a{componentArrayExprs})
         }),
         pos: pos,
-        access: [APublic, AInline]
+        access: [APublic, AInline],
+        doc: "Creates an entity wrapper for a specific entity ID.\n\nReturns type `HxEntity<World, [terms]>` matching this query's component terms.\n\nUsage: `var e = query.entity(eid); e.pos.x = 10;`"
     };
     queryFields.push(entityMethod);
 
