@@ -201,6 +201,32 @@ class TestQueryMacro extends Test {
         // Tag components don't have properties, just existence
     }
 
+    public function testEntityFromQuery() {
+        // Test creating entity wrapper from query using query.entity(eid)
+        var query = new hxbitecs.HxQuery<MyQueryWorld, [pos, vel]>(world);
+
+        // Create entity wrapper from query
+        var entity = query.entity(2);
+
+        Assert.equals(2, entity.eid);
+        Assert.equals(20.0, entity.pos.x);
+        Assert.equals(10.0, entity.pos.y);
+        Assert.equals(3.0, entity.vel.x);
+        Assert.equals(6.0, entity.vel.y);
+
+        // Test modification
+        entity.pos.x = 99.0;
+        Assert.equals(99.0, world.pos.x[2]);
+
+        // Verify type is the same as one created from world
+        var entityFromWorld = hxbitecs.Hx.entity(world, 2, [pos, vel]);
+
+        // Both should have same type and work identically
+        Assert.equals(99.0, entityFromWorld.pos.x);
+        entityFromWorld.pos.y = 88.0;
+        Assert.equals(88.0, entity.pos.y);
+    }
+
     public function testAdHocQuery() {
         // Test the new ad-hoc query syntax using hxbitecs.Hx.query()
         for (e in hxbitecs.Hx.query(world, [pos, vel])) {

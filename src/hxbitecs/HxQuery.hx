@@ -87,6 +87,31 @@ function generateQuery(name:String, target:Type, terms:Type,
     };
     queryFields.push(iteratorMethod);
 
+    // Generate entity() method that returns an entity wrapper for a specific eid
+    var wrapperTypePath:TypePath = {
+        pack: ['hxbitecs'],
+        name: 'EntityWrapperMacro',
+        params: [
+            TPType(TypeTools.toComplexType(target)),
+            TPExpr(switch terms {
+                case TInst(_.get().kind => KExpr(expr), _): expr;
+                case _: Context.error('Unsupported terms type: $terms', pos);
+            }),
+        ]
+    };
+
+    var entityMethod:Field = {
+        name: "entity",
+        kind: FFun({
+            args: [{ name: "eid", type: macro :Int }],
+            ret: TPath(wrapperTypePath),
+            expr: macro return new $wrapperTypePath(eid, $a{componentArrayExprs})
+        }),
+        pos: pos,
+        access: [APublic, AInline]
+    };
+    queryFields.push(entityMethod);
+
     var queryDef:TypeDefinition = {
         name: name,
         pack: ['hxbitecs'],

@@ -50,15 +50,14 @@ class Hx {
     }
 
     /**
-     * Creates an entity wrapper for accessing multiple components.
-     * Two overloads:
-     * - Hx.entity(world, eid, [terms]) - From world and component terms
-     * - Hx.entity(query, eid) - From existing query
+     * Creates an entity wrapper for accessing multiple components from world and terms.
      *
      * Usage: var e = Hx.entity(world, eid, [pos, vel]); e.pos.x = 10;
+     *
+     * For creating from query, use query.entity(eid) directly.
      */
-    public static macro function entity(worldOrQuery:Expr, eidOrTerms:Expr, ?maybeEid:Expr):Expr {
-        final e = entityImpl(worldOrQuery, eidOrTerms, maybeEid);
+    public static macro function entity(world:Expr, eid:Expr, terms:Expr):Expr {
+        final e = entityImpl(world, eid, terms);
         MacroDebug.printExpr(e, "Hx.entity");
         return e;
     }
@@ -241,20 +240,8 @@ class Hx {
         };
     }
 
-    static function entityImpl(worldOrQuery:Expr, eidOrTerms:Expr, maybeEid:Null<Expr>):Expr {
+    static function entityImpl(worldExpr:Expr, eidExpr:Expr, termsExpr:Expr):Expr {
         final pos = Context.currentPos();
-
-        // Dispatch based on argument count
-        if (maybeEid == null) {
-            // Two arguments: Hx.entity(query, eid)
-            return entityFromQueryImpl(worldOrQuery, eidOrTerms, pos);
-        } else {
-            // Three arguments: Hx.entity(world, eid, [terms])
-            return entityFromWorldImpl(worldOrQuery, eidOrTerms, maybeEid, pos);
-        }
-    }
-
-    static function entityFromWorldImpl(worldExpr:Expr, eidExpr:Expr, termsExpr:Expr, pos:Position):Expr {
         // Get world type from expression
         var worldType = Context.typeof(worldExpr);
 
@@ -280,12 +267,6 @@ class Hx {
 
         // Return new EntityWrapper(eid, [component stores])
         return macro new $wrapperTypePath($eidExpr, $a{componentStoreExprs});
-    }
-
-    static function entityFromQueryImpl(queryExpr:Expr, eidExpr:Expr, pos:Position):Expr {
-        // For now, the query overload is not implemented
-        // Users should use Hx.entity(world, eid, [terms]) instead
-        return Context.error('Hx.entity(query, eid) is not yet implemented. Use Hx.entity(world, eid, [terms]) instead.', pos);
     }
     #end
 
