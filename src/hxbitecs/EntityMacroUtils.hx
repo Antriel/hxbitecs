@@ -9,12 +9,6 @@ import hxbitecs.MacroDebug;
 #end
 
 #if macro
-enum EntityClassType {
-
-    Accessor; // EntityAccessor: world+eid constructor, public final component fields
-    Wrapper; // EntityWrapper: eid+query constructor, public final component fields
-
-}
 
 typedef EntityComponentInfo = {
 
@@ -24,21 +18,16 @@ typedef EntityComponentInfo = {
 
 }
 
-function generateEntityClass(name:String, world:Type, termInfos:Array<TermUtils.TermInfo>,
-        classType:EntityClassType):Array<TypeDefinition> {
+function generateEntityClass(name:String, world:Type,
+        termInfos:Array<TermUtils.TermInfo>):Array<TypeDefinition> {
     final pos = Context.currentPos();
     var fields:Array<Field> = [];
 
     // Generate component wrapper info
     var componentWrappers = generateEntityComponentInfo(termInfos);
 
-    // Add class-specific basic fields and constructor
-    switch classType {
-        case Accessor:
-            fields = fields.concat(generateAccessorSpecificFields(world, componentWrappers));
-        case Wrapper:
-            fields = fields.concat(generateWrapperSpecificFields(componentWrappers));
-    }
+    // Add wrapper-specific fields and constructor (only Wrapper type now)
+    fields = fields.concat(generateWrapperSpecificFields(componentWrappers));
 
     // Add component wrapper fields (all public final)
     fields = fields.concat(generateComponentFields(componentWrappers));
@@ -84,31 +73,6 @@ function generateEntityComponentInfo(termInfos:Array<TermUtils.TermInfo>):Array<
     return componentWrappers;
 }
 
-function generateAccessorSpecificFields(world:Type,
-        componentWrappers:Array<EntityComponentInfo>):Array<Field> {
-    var fields:Array<Field> = [];
-
-    // Add world and eid fields
-    fields.push(MacroUtils.generateBasicField("world", TypeTools.toComplexType(world), [APublic, AFinal]));
-    fields.push(MacroUtils.generateBasicField("eid", TPath({ pack: [], name: "Int" }), [APublic, AFinal]));
-
-    // Constructor
-    var constructorExprs = [
-        macro this.world = world,
-        macro this.eid = eid
-    ];
-
-    // Add component wrapper initialization
-    constructorExprs = constructorExprs.concat(generateComponentConstructorExprs(componentWrappers, Accessor));
-
-    fields.push(MacroUtils.generateConstructorField([
-        { name: "world", type: TypeTools.toComplexType(world) },
-        { name: "eid", type: TPath({ pack: [], name: "Int" }) }
-    ], constructorExprs));
-
-    return fields;
-}
-
 function generateWrapperSpecificFields(componentWrappers:Array<EntityComponentInfo>):Array<Field> {
     var fields:Array<Field> = [];
 
@@ -123,7 +87,7 @@ function generateWrapperSpecificFields(componentWrappers:Array<EntityComponentIn
     ];
 
     // Add component wrapper initialization
-    constructorExprs = constructorExprs.concat(generateComponentConstructorExprs(componentWrappers, Wrapper));
+    constructorExprs = constructorExprs.concat(generateComponentConstructorExprs(componentWrappers));
 
     fields.push(MacroUtils.generateConstructorField([
         { name: "eid", type: TPath({ pack: [], name: 'Int' }) },
@@ -175,21 +139,19 @@ function generateComponentFields(componentWrappers:Array<EntityComponentInfo>):A
     return fields;
 }
 
-function generateComponentConstructorExprs(componentWrappers:Array<EntityComponentInfo>,
-        classType:EntityClassType):Array<Expr> {
+function generateComponentConstructorExprs(componentWrappers:Array<EntityComponentInfo>):Array<Expr> {
     var constructorExprs:Array<Expr> = [];
     var componentIndex = 0;
 
     for (wrapper in componentWrappers) {
-        constructorExprs.push(generateSingleComponentConstructorExpr(wrapper, classType, componentIndex));
+        constructorExprs.push(generateSingleComponentConstructorExpr(wrapper, componentIndex));
         componentIndex++;
     }
 
     return constructorExprs;
 }
 
-function generateSingleComponentConstructorExpr(wrapper:EntityComponentInfo, classType:EntityClassType,
-        componentIndex:Int):Expr {
+function generateSingleComponentConstructorExpr(wrapper:EntityComponentInfo, componentIndex:Int):Expr {
     var fieldName = wrapper.name;
     var wrapperTypePath = switch wrapper.wrapperType {
         case TPath(p): p;
@@ -198,40 +160,26 @@ function generateSingleComponentConstructorExpr(wrapper:EntityComponentInfo, cla
 
     return switch wrapper.pattern {
         case SoA(_) | AoS(_):
-            generateStoreWrapperConstructorExpr(fieldName, wrapperTypePath, classType, componentIndex);
+            generateStoreWrapperConstructorExpr(fieldName, wrapperTypePath, componentIndex);
         case SimpleArray(_):
-            generateSimpleArrayConstructorExpr(fieldName, classType, componentIndex);
+            generateSimpleArrayConstructorExpr(fieldName, componentIndex);
         case Tag:
             macro this.$fieldName = new $wrapperTypePath(eid);
     };
 }
 
 function generateStoreWrapperConstructorExpr(fieldName:String, wrapperTypePath:TypePath,
-        classType:EntityClassType, componentIndex:Int):Expr {
-    return switch classType {
-        case Accessor:
-            macro this.$fieldName = new $wrapperTypePath({
-                store: world.$fieldName,
-                eid: eid
-            });
-        case Wrapper:
-            var index = macro $v{componentIndex};
-            macro this.$fieldName = new $wrapperTypePath({
-                store: components[$index],
-                eid: eid
-            });
-    };
+        componentIndex:Int):Expr {
+    var index = macro $v{componentIndex};
+    return macro this.$fieldName = new $wrapperTypePath({
+        store: components[$index],
+        eid: eid
+    });
 }
 
-function generateSimpleArrayConstructorExpr(fieldName:String, classType:EntityClassType,
-        componentIndex:Int):Expr {
+function generateSimpleArrayConstructorExpr(fieldName:String, componentIndex:Int):Expr {
     var storeName = '${fieldName}Store';
-    return switch classType {
-        case Accessor:
-            macro this.$storeName = world.$fieldName;
-        case Wrapper:
-            var index = macro $v{componentIndex};
-            macro this.$storeName = components[$index];
-    };
+    var index = macro $v{componentIndex};
+    return macro this.$storeName = components[$index];
 }
 #end

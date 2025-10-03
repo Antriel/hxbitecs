@@ -27,6 +27,6 @@ function build() {
 }
 
 function generateWrapper(name:String, world:Type, termInfos:Array<TermUtils.TermInfo>):Array<TypeDefinition> {
-    return EntityMacroUtils.generateEntityClass(name, world, termInfos, Wrapper);
+    return EntityMacroUtils.generateEntityClass(name, world, termInfos);
 }
 #end

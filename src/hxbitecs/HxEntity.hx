@@ -16,18 +16,18 @@ function build() {
         case TInst(_, [world, terms]):
             var baseName = MacroUtils.getBaseName(world);
             var simpleTermInfo = TermUtils.parseTerms(world, terms, false);
-            var name = 'EntityAccessor${baseName}_${simpleTermInfo.structureId}';
+            var name = 'EntityWrapper${baseName}_${simpleTermInfo.structureId}';
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
             return MacroUtils.buildGenericType(name, ct, () ->
-                generateEntityAccessor(name, world, terms, simpleTermInfo));
+                generateEntityWrapper(name, world, terms, simpleTermInfo));
         case _:
             Context.error("HxEntity requires exactly two type parameters", Context.currentPos());
     }
 }
 
-function generateEntityAccessor(name:String, world:Type, terms:Type,
+function generateEntityWrapper(name:String, world:Type, terms:Type,
         simpleTermInfo:TermUtils.QueryTermInfo):Array<TypeDefinition> {
-    return EntityMacroUtils.generateEntityClass(name, world, simpleTermInfo.allComponents, Accessor);
+    return EntityMacroUtils.generateEntityClass(name, world, simpleTermInfo.allComponents);
 }
 #end

@@ -107,8 +107,8 @@ class TestComponentAccess extends Test {
     }
 
     public function testCrossReferenceDataIntegrity() {
-        // Modify data through EntityAccessor
-        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [pos, health]>(world, 1);
+        // Modify data through entity wrapper
+        var accessor = hxbitecs.Hx.entity(world, 1, [pos, health]);
 
         // Verify initial values
         Assert.equals(10.0, accessor.pos.x);
@@ -134,7 +134,7 @@ class TestComponentAccess extends Test {
 
         Assert.isTrue(found);
 
-        // Modify through QueryMacro and verify through EntityAccessor
+        // Modify through QueryMacro and verify through entity wrapper
         for (e in query) {
             if (e.eid == 1) {
                 e.pos.x = 555.0;
@@ -236,8 +236,8 @@ class TestComponentAccess extends Test {
         // Should only find entity 2 (has both pos and isPoisoned)
         Assert.same([2], taggedEntities);
 
-        // Test EntityAccessor with tag
-        var tagAccessor = new hxbitecs.HxEntity<ComponentAccessWorld, [isPoisoned]>(world, 2);
+        // Test entity wrapper with tag
+        var tagAccessor = hxbitecs.Hx.entity(world, 2, [isPoisoned]);
         Assert.equals(2, tagAccessor.eid);
     }
 
@@ -312,8 +312,8 @@ class TestComponentAccess extends Test {
             }
         }
 
-        // Test with EntityAccessor
-        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [damage]>(world, 4);
+        // Test with entity wrapper
+        var accessor = hxbitecs.Hx.entity(world, 4, [damage]);
 
         // Direct assignment should work here too
         accessor.damage = 777;
@@ -358,11 +358,11 @@ class TestComponentAccess extends Test {
             }
         }
 
-        // Test EntityAccessor with SimpleArray assignment
-        var damageAccessor = new hxbitecs.HxEntity<ComponentAccessWorld, [damage]>(world, 2);
+        // Test entity wrapper with SimpleArray assignment
+        var damageAccessor = hxbitecs.Hx.entity(world, 2, [damage]);
         Assert.equals(100, damageAccessor.damage);
 
-        // Test cross-reference integrity: modify via EntityAccessor, verify via QueryMacro
+        // Test cross-reference integrity: modify via entity wrapper, verify via QueryMacro
         damageAccessor.damage = 75;
 
         for (e in damageQuery) {
@@ -379,7 +379,7 @@ class TestComponentAccess extends Test {
             }
         }
 
-        var damageAccessor4 = new hxbitecs.HxEntity<ComponentAccessWorld, [damage]>(world, 4);
+        var damageAccessor4 = hxbitecs.Hx.entity(world, 4, [damage]);
         Assert.equals(50, damageAccessor4.damage); // Should see the change made via QueryMacro
     }
 
@@ -430,8 +430,8 @@ class TestComponentAccess extends Test {
         pos.x = 999.0;
         pos.y = 888.0;
 
-        // Verify changes are visible through HxEntity
-        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [pos]>(world, 1);
+        // Verify changes are visible through entity wrapper
+        var accessor = hxbitecs.Hx.entity(world, 1, [pos]);
         Assert.equals(999.0, accessor.pos.x);
         Assert.equals(888.0, accessor.pos.y);
 
@@ -457,8 +457,8 @@ class TestComponentAccess extends Test {
         health.hp = 50;
         health.maxHp = 200;
 
-        // Verify changes are visible through HxEntity
-        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [health]>(world, 1);
+        // Verify changes are visible through entity wrapper
+        var accessor = hxbitecs.Hx.entity(world, 1, [health]);
         Assert.equals(50, accessor.health.hp);
         Assert.equals(200, accessor.health.maxHp);
 
@@ -485,8 +485,8 @@ class TestComponentAccess extends Test {
         // Verify change
         Assert.equals(150, damage.value);
 
-        // Verify changes are visible through HxEntity
-        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [damage]>(world, 2);
+        // Verify changes are visible through entity wrapper
+        var accessor = hxbitecs.Hx.entity(world, 2, [damage]);
         Assert.equals(150, accessor.damage);
 
         // Verify changes are visible through HxQuery
@@ -506,12 +506,12 @@ class TestComponentAccess extends Test {
         vel.x = 10.0;
         vel.y = 20.0;
 
-        // Verify via HxEntity
-        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [vel]>(world, 1);
+        // Verify via entity wrapper
+        var accessor = hxbitecs.Hx.entity(world, 1, [vel]);
         Assert.equals(10.0, accessor.vel.x);
         Assert.equals(20.0, accessor.vel.y);
 
-        // Modify via HxEntity
+        // Modify via entity wrapper
         accessor.vel.x = 30.0;
 
         // Verify via Hx.get
@@ -554,12 +554,12 @@ class TestComponentAccess extends Test {
         Assert.equals(150.0, pos.x);
         Assert.equals(150.0, pos.y);
 
-        // Verify changes are visible through HxEntity
-        var accessor = new hxbitecs.HxEntity<ComponentAccessWorld, [pos]>(world, 1);
+        // Verify changes are visible through entity wrapper
+        var accessor = hxbitecs.Hx.entity(world, 1, [pos]);
         Assert.equals(150.0, accessor.pos.x);
         Assert.equals(150.0, accessor.pos.y);
 
-        // Test that helper methods also work on HxEntity wrappers
+        // Test that helper methods also work on entity wrappers
         accessor.pos.setTo(300.0, 400.0);
         Assert.equals(300.0, accessor.pos.x);
         Assert.equals(400.0, accessor.pos.y);

@@ -143,17 +143,16 @@ class TestQueryMacro extends Test {
         Assert.same([1, 5, 7], foundEntityIds);
     }
 
-    public function testEntityAccessor() {
-        // Test EntityAccessor with pos component
-        var entityPos = new hxbitecs.HxEntity<MyQueryWorld, [pos]>(world, 1);
+    public function testEntityWrapper() {
+        // Test entity wrapper with pos component
+        var entityPos = hxbitecs.Hx.entity(world, 1, [pos]);
 
         Assert.equals(1, entityPos.eid);
         Assert.equals(10.0, entityPos.pos.x);
         Assert.equals(5.0, entityPos.pos.y);
 
-        // Test EntityAccessor with pos and vel components for even entity
-        var entityPosVel:hxbitecs.HxEntity<MyQueryWorld, [pos, vel]>;
-        entityPosVel = new hxbitecs.HxEntity<MyQueryWorld, [pos, vel]>(world, 2);
+        // Test entity wrapper with pos and vel components for even entity
+        var entityPosVel = hxbitecs.Hx.entity(world, 2, [pos, vel]);
 
         Assert.equals(2, entityPosVel.eid);
         Assert.equals(20.0, entityPosVel.pos.x);
@@ -162,9 +161,9 @@ class TestQueryMacro extends Test {
         Assert.equals(6.0, entityPosVel.vel.y);
     }
 
-    public function testEntityAccessorModification() {
-        // Test modifying components through EntityAccessor
-        var entity = new hxbitecs.HxEntity<MyQueryWorld, [pos, vel]>(world, 4);
+    public function testEntityWrapperModification() {
+        // Test modifying components through entity wrapper
+        var entity = hxbitecs.Hx.entity(world, 4, [pos, vel]);
 
         // Store original values
         var originalPosX = entity.pos.x; // Should be 40.0
@@ -182,9 +181,9 @@ class TestQueryMacro extends Test {
         Assert.equals(30.0, entity.pos.y);
     }
 
-    public function testEntityAccessorWithHealth() {
-        // Test EntityAccessor with AoS component (health)
-        var entityHealth = new hxbitecs.HxEntity<MyQueryWorld, [health]>(world, 3);
+    public function testEntityWrapperWithHealth() {
+        // Test entity wrapper with AoS component (health)
+        var entityHealth = hxbitecs.Hx.entity(world, 3, [health]);
 
         Assert.equals(3, entityHealth.eid);
         Assert.equals(130, entityHealth.health.hp);
@@ -194,9 +193,9 @@ class TestQueryMacro extends Test {
         Assert.equals(150, entityHealth.health.hp);
     }
 
-    public function testEntityAccessorWithTag() {
-        // Test EntityAccessor with tag component (isPoisoned)
-        var entityPoisoned = new hxbitecs.HxEntity<MyQueryWorld, [isPoisoned]>(world, 5);
+    public function testEntityWrapperWithTag() {
+        // Test entity wrapper with tag component (isPoisoned)
+        var entityPoisoned = hxbitecs.Hx.entity(world, 5, [isPoisoned]);
 
         Assert.equals(5, entityPoisoned.eid);
         // Tag components don't have properties, just existence

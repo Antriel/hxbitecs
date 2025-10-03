@@ -49,6 +49,20 @@ class Hx {
         return e;
     }
 
+    /**
+     * Creates an entity wrapper for accessing multiple components.
+     * Two overloads:
+     * - Hx.entity(world, eid, [terms]) - From world and component terms
+     * - Hx.entity(query, eid) - From existing query
+     *
+     * Usage: var e = Hx.entity(world, eid, [pos, vel]); e.pos.x = 10;
+     */
+    public static macro function entity(worldOrQuery:Expr, eidOrTerms:Expr, ?maybeEid:Expr):Expr {
+        final e = entityImpl(worldOrQuery, eidOrTerms, maybeEid);
+        MacroDebug.printExpr(e, "Hx.entity");
+        return e;
+    }
+
     #if macro
     static function queryImpl(worldExpr:Expr, termsExpr:Expr):Expr {
         final pos = Context.currentPos();
@@ -225,6 +239,53 @@ class Hx {
                 // Tags have no data, emit error.
                 Context.error('Tag components have no data fields and cannot be accessed directly. Use their presence/absence instead.', pos);
         };
+    }
+
+    static function entityImpl(worldOrQuery:Expr, eidOrTerms:Expr, maybeEid:Null<Expr>):Expr {
+        final pos = Context.currentPos();
+
+        // Dispatch based on argument count
+        if (maybeEid == null) {
+            // Two arguments: Hx.entity(query, eid)
+            return entityFromQueryImpl(worldOrQuery, eidOrTerms, pos);
+        } else {
+            // Three arguments: Hx.entity(world, eid, [terms])
+            return entityFromWorldImpl(worldOrQuery, eidOrTerms, maybeEid, pos);
+        }
+    }
+
+    static function entityFromWorldImpl(worldExpr:Expr, eidExpr:Expr, termsExpr:Expr, pos:Position):Expr {
+        // Get world type from expression
+        var worldType = Context.typeof(worldExpr);
+
+        // Parse terms from expression
+        var queryTermInfo = TermUtils.parseTermsFromExpr(worldType, termsExpr);
+
+        // Generate EntityWrapperMacro type path
+        var wrapperTypePath:TypePath = {
+            pack: ['hxbitecs'],
+            name: 'EntityWrapperMacro',
+            params: [
+                TPType(TypeTools.toComplexType(worldType)),
+                TPExpr(termsExpr)
+            ]
+        };
+
+        // Generate component store expressions from allComponents
+        var componentStoreExprs:Array<Expr> = [];
+        for (termInfo in queryTermInfo.allComponents) {
+            var componentName = termInfo.name;
+            componentStoreExprs.push(macro $worldExpr.$componentName);
+        }
+
+        // Return new EntityWrapper(eid, [component stores])
+        return macro new $wrapperTypePath($eidExpr, $a{componentStoreExprs});
+    }
+
+    static function entityFromQueryImpl(queryExpr:Expr, eidExpr:Expr, pos:Position):Expr {
+        // For now, the query overload is not implemented
+        // Users should use Hx.entity(world, eid, [terms]) instead
+        return Context.error('Hx.entity(query, eid) is not yet implemented. Use Hx.entity(world, eid, [terms]) instead.', pos);
     }
     #end
 

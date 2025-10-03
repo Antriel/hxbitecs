@@ -160,8 +160,8 @@ class TestTypedefComponents extends Test {
     }
 
     public function testHxEntityWithTypedef() {
-        // Test HxEntity with typedef components
-        var accessor = new hxbitecs.HxEntity<TypedefComponentWorld, [posSoA, velAoS]>(world, 2);
+        // Test Hx.entity with typedef components
+        var accessor = hxbitecs.Hx.entity(world, 2, [posSoA, velAoS]);
 
         // Should only have posSoA (entity 2 doesn't have velAoS)
         Assert.equals(20.0, accessor.posSoA.x);
