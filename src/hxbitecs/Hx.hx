@@ -116,15 +116,27 @@ class Hx {
                 macro bitecs.Bitecs.addComponent($world, $eid, $component);
 
             case SimpleArray(_) | AoS(_):
+                // Generate wrapper type path
+                var wrapperTypePath:TypePath = {
+                    pack: ['hxbitecs'],
+                    name: 'HxComponent',
+                    params: [TPType(TypeTools.toComplexType(componentType))]
+                };
+
                 if (!hasInit) {
-                    // Just add the component without initialization
-                    macro bitecs.Bitecs.addComponent($world, $eid, $component);
+                    // Add component and return wrapper
+                    macro {
+                        var __comp = $component;
+                        bitecs.Bitecs.addComponent($world, $eid, __comp);
+                        new $wrapperTypePath({ store: __comp, eid: $eid });
+                    };
                 } else {
-                    // Add and initialize with direct assignment
+                    // Add, initialize, and return wrapper
                     macro {
                         var __comp = $component;
                         bitecs.Bitecs.addComponent($world, $eid, __comp);
                         __comp[$eid] = $init;
+                        new $wrapperTypePath({ store: __comp, eid: $eid });
                     };
                 }
 
@@ -139,9 +151,20 @@ class Hx {
         // Get component fields
         var componentFields = MacroUtils.getComponentFields(componentType);
 
+        // Generate wrapper type path
+        var wrapperTypePath:TypePath = {
+            pack: ['hxbitecs'],
+            name: 'HxComponent',
+            params: [TPType(TypeTools.toComplexType(componentType))]
+        };
+
         if (!hasInit) {
-            // Just add component without initialization
-            return macro bitecs.Bitecs.addComponent($world, $eid, $component);
+            // Add component and return wrapper
+            return macro {
+                var __comp = $component;
+                bitecs.Bitecs.addComponent($world, $eid, __comp);
+                new $wrapperTypePath({ store: __comp, eid: $eid });
+            };
         }
 
         // Extract initializer fields from the object literal
@@ -161,13 +184,6 @@ class Hx {
             }
         }
 
-        // Generate wrapper type path
-        var wrapperTypePath:TypePath = {
-            pack: ['hxbitecs'],
-            name: 'HxComponent',
-            params: [TPType(TypeTools.toComplexType(componentType))]
-        };
-
         // Generate field assignments
         var assignments:Array<Expr> = [];
         for (initField in initFields) {
@@ -182,6 +198,7 @@ class Hx {
             bitecs.Bitecs.addComponent($world, $eid, __comp);
             var __w = new $wrapperTypePath({ store: __comp, eid: $eid });
             $b{assignments};
+            __w;
         };
     }
     static function getImpl(eid:Expr, component:Expr):Expr {

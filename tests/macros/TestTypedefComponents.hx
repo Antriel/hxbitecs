@@ -243,17 +243,29 @@ class TestTypedefComponents extends Test {
     public function testTypedefWithHxAddComponent() {
         // Test Hx.addComponent with typedef components
         var e8 = Bitecs.addEntity(world);
-        hxbitecs.Hx.addComponent(world, e8, world.posSoA, { x: 60.0, y: 70.0 });
+        var wrapper = hxbitecs.Hx.addComponent(world, e8, world.posSoA, { x: 60.0, y: 70.0 });
 
         Assert.equals(60.0, world.posSoA.x[e8]);
         Assert.equals(70.0, world.posSoA.y[e8]);
 
+        // Verify wrapper is returned and works
+        Assert.equals(60.0, wrapper.x);
+        Assert.equals(70.0, wrapper.y);
+        wrapper.x = 65.0;
+        Assert.equals(65.0, world.posSoA.x[e8]);
+
         // Test with AoS typedef
         var e9 = Bitecs.addEntity(world);
-        hxbitecs.Hx.addComponent(world, e9, world.velAoS, { x: 8.0, y: 9.0 });
+        var wrapperAoS = hxbitecs.Hx.addComponent(world, e9, world.velAoS, { x: 8.0, y: 9.0 });
 
         Assert.equals(8.0, world.velAoS[e9].x);
         Assert.equals(9.0, world.velAoS[e9].y);
+
+        // Verify wrapper works for AoS typedef
+        Assert.equals(8.0, wrapperAoS.x);
+        Assert.equals(9.0, wrapperAoS.y);
+        wrapperAoS.y = 10.0;
+        Assert.equals(10.0, world.velAoS[e9].y);
     }
 
 }

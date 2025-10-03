@@ -18,53 +18,81 @@ class TestInitComponent extends Test {
         // Test full initialization of SoA component with all fields
         var eid = Bitecs.addEntity(world);
 
-        Hx.addComponent(world, eid, world.pos, { x: 10.0, y: 20.0 });
+        var wrapper = Hx.addComponent(world, eid, world.pos, { x: 10.0, y: 20.0 });
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
         Assert.equals(10.0, world.pos.x[eid]);
         Assert.equals(20.0, world.pos.y[eid]);
+
+        // Verify wrapper is returned and works correctly
+        Assert.equals(10.0, wrapper.x);
+        Assert.equals(20.0, wrapper.y);
+
+        // Verify wrapper can modify values
+        wrapper.x = 15.0;
+        Assert.equals(15.0, world.pos.x[eid]);
     }
 
     public function testSoAPartialInitialization() {
         // Test partial initialization - only some fields
         var eid = Bitecs.addEntity(world);
 
-        Hx.addComponent(world, eid, world.pos, { x: 15.0 });
+        var wrapper = Hx.addComponent(world, eid, world.pos, { x: 15.0 });
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
         Assert.equals(15.0, world.pos.x[eid]);
         // y should be uninitialized (0.0 or whatever default)
+
+        // Verify wrapper works and can set remaining fields
+        Assert.equals(15.0, wrapper.x);
+        wrapper.y = 25.0;
+        Assert.equals(25.0, world.pos.y[eid]);
     }
 
     public function testAoSInitialization() {
         // Test Array of Structs initialization
         var eid = Bitecs.addEntity(world);
 
-        Hx.addComponent(world, eid, world.health, { hp: 100, maxHp: 150 });
+        var wrapper = Hx.addComponent(world, eid, world.health, { hp: 100, maxHp: 150 });
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.health));
         Assert.equals(100, world.health[eid].hp);
         Assert.equals(150, world.health[eid].maxHp);
+
+        // Verify wrapper works for AoS
+        Assert.equals(100, wrapper.hp);
+        Assert.equals(150, wrapper.maxHp);
+        wrapper.hp = 75;
+        Assert.equals(75, world.health[eid].hp);
     }
 
     public function testSimpleArrayInitialization() {
         // Test simple array component initialization
         var eid = Bitecs.addEntity(world);
 
-        Hx.addComponent(world, eid, world.damage, 50);
+        var wrapper = Hx.addComponent(world, eid, world.damage, 50);
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.damage));
         Assert.equals(50, world.damage[eid]);
+
+        // Verify wrapper works for SimpleArray
+        Assert.equals(50, wrapper.value);
+        wrapper.value = 75;
+        Assert.equals(75, world.damage[eid]);
     }
 
     public function testSimpleArrayWithoutInit() {
         // Test adding simple array component without initialization
         var eid = Bitecs.addEntity(world);
 
-        Hx.addComponent(world, eid, world.damage);
+        var wrapper = Hx.addComponent(world, eid, world.damage);
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.damage));
         // Value should be whatever the default is (0 or undefined behavior)
+
+        // Verify wrapper can set values
+        wrapper.value = 100;
+        Assert.equals(100, world.damage[eid]);
     }
 
     public function testTagComponent() {
@@ -151,10 +179,16 @@ class TestInitComponent extends Test {
         // Test that components can be added without initializer
         var eid = Bitecs.addEntity(world);
 
-        Hx.addComponent(world, eid, world.pos);
+        var wrapper = Hx.addComponent(world, eid, world.pos);
 
         Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
         // Values will be whatever the default is
+
+        // Verify wrapper is returned and can set values
+        wrapper.x = 50.0;
+        wrapper.y = 60.0;
+        Assert.equals(50.0, world.pos.x[eid]);
+        Assert.equals(60.0, world.pos.y[eid]);
     }
 
     public function testTypeSafety() {
