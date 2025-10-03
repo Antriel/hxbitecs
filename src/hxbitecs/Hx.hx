@@ -72,6 +72,14 @@ class Hx {
     static function queryImpl(worldExpr:Expr, termsExpr:Expr):Expr {
         final pos = Context.currentPos();
 
+        // Validate that terms is an array expression
+        switch termsExpr.expr {
+            case EArrayDecl(_):
+                // Valid
+            case _:
+                Context.error('terms parameter must be an array literal like [pos, vel].', termsExpr.pos);
+        }
+
         // Get world type from expression
         var worldType = Context.typeof(worldExpr);
 
@@ -112,6 +120,13 @@ class Hx {
 
     static function addComponentImpl(world:Expr, eid:Expr, component:Expr, ?init:Expr):Expr {
         var pos = Context.currentPos();
+
+        // Validate that component is not an array expression
+        switch component.expr {
+            case EArrayDecl(_):
+                Context.error('component parameter must be a single component store, not an array.', component.pos);
+            case _:
+        }
 
         // Normalize init - if it's null or not provided, treat as no initialization
         var hasInit = switch init {
@@ -223,6 +238,13 @@ class Hx {
     static function getImpl(eid:Expr, component:Expr):Expr {
         var pos = Context.currentPos();
 
+        // Validate that component is not an array expression
+        switch component.expr {
+            case EArrayDecl(_):
+                Context.error('component parameter must be a single component store, not an array. Use Hx.entity() for multiple components.', component.pos);
+            case _:
+        }
+
         // Type the component expression to determine its type
         var componentType = Context.typeof(component);
 
@@ -248,6 +270,15 @@ class Hx {
 
     static function entityImpl(worldExpr:Expr, eidExpr:Expr, termsExpr:Expr):Expr {
         final pos = Context.currentPos();
+
+        // Validate that terms is an array expression
+        switch termsExpr.expr {
+            case EArrayDecl(_):
+                // Valid
+            case _:
+                Context.error('terms parameter must be an array literal like [pos, vel].', termsExpr.pos);
+        }
+
         // Get world type from expression
         var worldType = Context.typeof(worldExpr);
 
