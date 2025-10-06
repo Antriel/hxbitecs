@@ -49,31 +49,21 @@ function generateQuery(name:String, target:Type, terms:Type,
     };
     queryFields.push(constructor);
 
+    var termsExpr = switch terms {
+        case TInst(_.get().kind => KExpr(expr), _): expr;
+        case _: Context.error('Unsupported terms type: $terms', pos);
+    };
+    var wrapperTypePath = MacroUtils.generateEntityWrapperTypePath(target, termsExpr);
+
     final iterTp:TypePath = {
-        pack: ['hxbitecs'],
-        name: 'QueryIterator',
-        params: [
-            TPType(TPath({
-                pack: ['hxbitecs'],
-                name: 'EntityWrapperMacro',
-                params: [
-                    TPType(TypeTools.toComplexType(target)),
-                    TPExpr(switch terms {
-                        case TInst(_.get().kind => KExpr(expr), _): expr;
-                        case _: Context.error('Unsupported terms type: $terms', pos);
-                    }),
-                ]
-            }))
-        ]
+        pack: MacroUtils.HXBITECS_PACK,
+        name: MacroUtils.QUERY_ITERATOR,
+        params: [TPType(TPath(wrapperTypePath))]
     };
 
     // Generate array literal with explicit indices for component stores
     // e.g., [this.allComponents[0], this.allComponents[1], ...]
-    var componentArrayExprs:Array<Expr> = [];
-    for (i in 0...queryTermInfo.allComponents.length) {
-        var index = macro $v{i};
-        componentArrayExprs.push(macro this.allComponents[$index]);
-    }
+    var componentArrayExprs = MacroUtils.generateComponentArrayExprs(queryTermInfo.allComponents.length);
 
     var iteratorMethod:Field = {
         name: "iterator",
@@ -89,17 +79,6 @@ function generateQuery(name:String, target:Type, terms:Type,
 
     // Generate entity() method that returns an entity wrapper for a specific eid
     // Returns type HxEntity<World, [terms]> matching this query's component terms
-    var wrapperTypePath:TypePath = {
-        pack: ['hxbitecs'],
-        name: 'EntityWrapperMacro',
-        params: [
-            TPType(TypeTools.toComplexType(target)),
-            TPExpr(switch terms {
-                case TInst(_.get().kind => KExpr(expr), _): expr;
-                case _: Context.error('Unsupported terms type: $terms', pos);
-            }),
-        ]
-    };
 
     var entityMethod:Field = {
         name: "entity",
@@ -116,7 +95,7 @@ function generateQuery(name:String, target:Type, terms:Type,
 
     var queryDef:TypeDefinition = {
         name: name,
-        pack: ['hxbitecs'],
+        pack: MacroUtils.HXBITECS_PACK,
         pos: pos,
         kind: TDAbstract(TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' })),
         fields: queryFields

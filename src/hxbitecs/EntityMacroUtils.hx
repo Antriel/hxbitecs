@@ -34,7 +34,7 @@ function generateEntityClass(name:String, world:Type,
 
     var classDef:TypeDefinition = {
         name: name,
-        pack: ['hxbitecs'],
+        pack: MacroUtils.HXBITECS_PACK,
         pos: pos,
         kind: TDClass(),
         fields: fields
@@ -57,8 +57,8 @@ function generateEntityComponentInfo(termInfos:Array<TermUtils.TermInfo>):Array<
             case SoA(_) | AoS(_) | Tag:
                 // For other patterns, use HxComponent
                 TPath({
-                    pack: ['hxbitecs'],
-                    name: 'HxComponent',
+                    pack: MacroUtils.HXBITECS_PACK,
+                    name: MacroUtils.HX_COMPONENT,
                     params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
                 });
         };
@@ -117,11 +117,8 @@ function generateComponentFields(componentWrappers:Array<EntityComponentInfo>):A
                 });
                 fields.push(MacroUtils.generateBasicField(storeName, arrayType, [APrivate, AFinal]));
 
-                // Property with get/set methods
-                var arrayRef = { expr: EConst(CIdent(storeName)), pos: pos };
-                var eid = { expr: EConst(CIdent("eid")), pos: pos };
-                var getterExpr = { expr: EArray(arrayRef, eid), pos: pos };
-
+                // Property with get/set methods using helper
+                var getterExpr = macro this.$storeName[this.eid];
                 var propFields = MacroUtils.generatePropertyWithGetSet(wrapper.name, elementComplexType, getterExpr);
                 fields = fields.concat(propFields);
 

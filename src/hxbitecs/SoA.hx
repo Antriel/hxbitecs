@@ -16,7 +16,7 @@ function build() {
         case TInst(_, [target]):
             var baseName = MacroUtils.getBaseName(target);
             var name = 'SoA' + baseName;
-            var ct = TPath({ pack: ['hxbitecs'], name: name });
+            var ct = TPath({ pack: MacroUtils.HXBITECS_PACK, name: name });
 
             return MacroUtils.buildGenericType(name, ct, () -> generateSoA(name, target));
         case _:
@@ -102,7 +102,7 @@ function generateSoA(name:String, target:Type):Array<TypeDefinition> {
 
     return [{
         name: name,
-        pack: ['hxbitecs'],
+        pack: MacroUtils.HXBITECS_PACK,
         pos: pos,
         kind: TDAbstract(structType),
         meta: metadata,

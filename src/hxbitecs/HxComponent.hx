@@ -33,7 +33,7 @@ function build() {
                 case Tag: 'TagWrapper_${baseName}';
             };
 
-            var ct = TPath({ pack: ['hxbitecs'], name: name });
+            var ct = TPath({ pack: MacroUtils.HXBITECS_PACK, name: name });
             return MacroUtils.buildGenericType(name, ct, () -> switch pattern {
                 case SoA(fields):
                     generateStoreWrapper(name, componentType, fields, generateSoAAccess, usingPath);
@@ -160,18 +160,11 @@ function generateTagWrapper(name:String, componentType:Type, usingPath:Null<Expr
     });
 
     // Build metadata array
-    var metadata:Metadata = [];
-    if (usingPath != null) {
-        metadata.push({
-            name: ':using',
-            params: [usingPath],
-            pos: pos
-        });
-    }
+    var metadata = MacroUtils.buildMetadataArray(usingPath, pos);
 
     var td = {
         name: name,
-        pack: ['hxbitecs'],
+        pack: MacroUtils.HXBITECS_PACK,
         pos: pos,
         kind: TDAbstract(TPath({ pack: [], name: "Int" })),
         fields: wrapperFields,
@@ -228,18 +221,11 @@ function createWrapperTypeDefinition(name:String, underlyingType:ComplexType,
     var pos = Context.currentPos();
 
     // Build metadata array
-    var metadata:Metadata = [];
-    if (usingPath != null) {
-        metadata.push({
-            name: ':using',
-            params: [usingPath],
-            pos: pos
-        });
-    }
+    var metadata = MacroUtils.buildMetadataArray(usingPath, pos);
 
     var td = {
         name: name,
-        pack: ['hxbitecs'],
+        pack: MacroUtils.HXBITECS_PACK,
         pos: pos,
         kind: TDAbstract(underlyingType),
         fields: fields,

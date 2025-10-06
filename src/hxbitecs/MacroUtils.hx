@@ -7,6 +7,12 @@ import haxe.macro.Type;
 import haxe.macro.TypeTools;
 import hxbitecs.MacroDebug;
 
+// Constants for common type and package names
+final HXBITECS_PACK:Array<String> = ['hxbitecs'];
+final ENTITY_WRAPPER_MACRO:String = 'EntityWrapperMacro';
+final HX_COMPONENT:String = 'HxComponent';
+final QUERY_ITERATOR:String = 'QueryIterator';
+
 @:persistent private var generated = new Map<String, Bool>();
 
 function isGenerated(name:String):Bool {
@@ -351,5 +357,96 @@ function getComponentDefaults(componentType:Type):Null<Map<String, Expr>> {
         case _:
             Context.error('@:defaults metadata must contain an object literal like {x: 0.0, y: -1.0}', defaultsExpr.pos);
     };
+}
+
+/**
+ * Generate EntityWrapperMacro TypePath with world and terms parameters.
+ */
+function generateEntityWrapperTypePath(worldType:Type, termsExpr:Expr):TypePath {
+    return {
+        pack: HXBITECS_PACK,
+        name: ENTITY_WRAPPER_MACRO,
+        params: [
+            TPType(TypeTools.toComplexType(worldType)),
+            TPExpr(termsExpr)
+        ]
+    };
+}
+
+/**
+ * Generate HxComponent TypePath with component type parameter.
+ */
+function generateHxComponentTypePath(componentType:Type):TypePath {
+    return {
+        pack: HXBITECS_PACK,
+        name: HX_COMPONENT,
+        params: [TPType(TypeTools.toComplexType(componentType))]
+    };
+}
+
+/**
+ * Generate component store array expressions from world expression and term infos.
+ * Creates expressions like [world.pos, world.vel, ...] from term information.
+ */
+function generateComponentStoreExprs(worldExpr:Expr, termInfos:Array<TermUtils.TermInfo>):Array<Expr> {
+    var componentStoreExprs:Array<Expr> = [];
+    for (termInfo in termInfos) {
+        var componentName = termInfo.name;
+        componentStoreExprs.push(macro $worldExpr.$componentName);
+    }
+    return componentStoreExprs;
+}
+
+/**
+ * Generate array literal with explicit indices for component stores.
+ * Creates expressions like [this.allComponents[0], this.allComponents[1], ...]
+ */
+function generateComponentArrayExprs(componentCount:Int):Array<Expr> {
+    var exprs:Array<Expr> = [];
+    for (i in 0...componentCount) {
+        var index = macro $v{i};
+        exprs.push(macro this.allComponents[$index]);
+    }
+    return exprs;
+}
+
+/**
+ * Validate that init fields exist in component fields, reporting errors for mismatches.
+ */
+function validateInitFields(initFields:Array<ObjectField>, componentFields:Array<ComponentFieldInfo>, pos:Position):Void {
+    var componentFieldNames = [for (f in componentFields) f.name];
+    for (initField in initFields) {
+        if (!componentFieldNames.contains(initField.field)) {
+            Context.error('Field "${initField.field}" does not exist in component. Available fields: ${componentFieldNames.join(", ")}',
+                initField.expr.pos);
+        }
+    }
+}
+
+/**
+ * Validate that default field names exist in component fields, reporting warnings for mismatches.
+ */
+function validateDefaultFields(defaults:Map<String, Expr>, componentFields:Array<ComponentFieldInfo>, pos:Position):Void {
+    var componentFieldNames = [for (f in componentFields) f.name];
+    for (fieldName in defaults.keys()) {
+        if (!componentFieldNames.contains(fieldName)) {
+            Context.warning('Default field "$fieldName" does not exist in component. Available fields: ${componentFieldNames.join(", ")}', pos);
+        }
+    }
+}
+
+/**
+ * Build metadata array with optional :using parameter.
+ */
+function buildMetadataArray(usingPath:Null<Expr>, pos:Position):Metadata {
+    var metadata:Metadata = [];
+    if (usingPath != null) {
+        metadata.push({
+            name: ':using',
+            params: [usingPath],
+            pos: pos
+        });
+    }
+    return metadata;
 }
 #end

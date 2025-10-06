@@ -8,6 +8,9 @@ import haxe.macro.TypeTools;
 
 using Lambda;
 
+/**
+ * Information about a single component term.
+ */
 typedef TermInfo = {
 
     name:String,
@@ -15,6 +18,9 @@ typedef TermInfo = {
 
 }
 
+/**
+ * Complete information about parsed query terms.
+ */
 typedef QueryTermInfo = {
 
     // All unique components collected from the query terms
@@ -26,11 +32,27 @@ typedef QueryTermInfo = {
 
 }
 
+/**
+ * Parse query terms from a type parameter (used by HxQuery and other generic builds).
+ *
+ * @param worldType The world type containing component definitions
+ * @param termsType The terms type (must be TInst with KExpr containing array of terms)
+ * @param allowOperators Whether to allow query operators (Or, And, Not, etc.)
+ * @return Parsed query term information including components and expressions
+ */
 function parseTerms(worldType:Type, termsType:Type, allowOperators:Bool = true):QueryTermInfo {
     var termExprs = getTermExpressions(termsType);
     return parseTermsInternal(worldType, termExprs, allowOperators);
 }
 
+/**
+ * Parse query terms from an expression (used by Hx.query() and Hx.entity()).
+ *
+ * @param worldType The world type containing component definitions
+ * @param termsExpr The terms expression (must be an array literal)
+ * @param allowOperators Whether to allow query operators (Or, And, Not, etc.)
+ * @return Parsed query term information including components and expressions
+ */
 function parseTermsFromExpr(worldType:Type, termsExpr:Expr, allowOperators:Bool = true):QueryTermInfo {
     var termExprs = getTermExpressionsFromExpr(termsExpr);
     return parseTermsInternal(worldType, termExprs, allowOperators);
@@ -83,6 +105,20 @@ function getTermExpressionsFromExpr(termsExpr:Expr):Array<Expr> {
     }
 }
 
+/**
+ * Recursively parse a single query term, handling both simple components and operators.
+ *
+ * This function processes query terms and determines which components should be collected
+ * based on whether they appear in positive or negative contexts:
+ * - Positive operators (Or, And, Any, All): Components are collected for entity wrappers
+ * - Negative operators (Not, None): Components are NOT collected (entity doesn't have them)
+ *
+ * @param worldType The world type for resolving component types
+ * @param expr The expression to parse
+ * @param allComponents Accumulator for collected component information
+ * @param shouldCollect Whether components in this term should be collected
+ * @return The transformed expression for bitECS query
+ */
 function parseQueryTerm(worldType:Type, expr:Expr, allComponents:Array<TermInfo>, shouldCollect:Bool):Expr {
     return switch expr.expr {
         // Simple component reference: pos, vel, health

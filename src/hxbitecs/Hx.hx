@@ -6,6 +6,11 @@ import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.TypeTools;
 import hxbitecs.MacroDebug;
+
+typedef InitializationData = {
+    fieldValues:Map<String, Expr>,
+    hasValues:Bool
+}
 #end
 
 /**
@@ -87,29 +92,18 @@ class Hx {
         var queryTermInfo = TermUtils.parseTermsFromExpr(worldType, termsExpr);
 
         // Generate EntityWrapperMacro type for the iterator
-        var wrapperComplexType = TPath({
-            pack: ['hxbitecs'],
-            name: 'EntityWrapperMacro',
-            params: [
-                TPType(TypeTools.toComplexType(worldType)),
-                TPExpr(termsExpr)
-            ]
-        });
+        var wrapperTypePath = MacroUtils.generateEntityWrapperTypePath(worldType, termsExpr);
 
         // Generate iterator type
         var iteratorType:TypePath = {
-            pack: ['hxbitecs'],
-            name: 'QueryIterator',
-            params: [TPType(wrapperComplexType)]
+            pack: MacroUtils.HXBITECS_PACK,
+            name: MacroUtils.QUERY_ITERATOR,
+            params: [TPType(TPath(wrapperTypePath))]
         };
 
         // Generate component store expressions from allComponents
         // This ensures we only pass actual component stores, not operator expressions
-        var componentStoreExprs:Array<Expr> = [];
-        for (termInfo in queryTermInfo.allComponents) {
-            var componentName = termInfo.name;
-            componentStoreExprs.push(macro $worldExpr.$componentName);
-        }
+        var componentStoreExprs = MacroUtils.generateComponentStoreExprs(worldExpr, queryTermInfo.allComponents);
 
         // Generate block expression that creates the iterator directly
         return macro {
@@ -151,11 +145,7 @@ class Hx {
 
             case SimpleArray(_):
                 // Generate wrapper type path
-                var wrapperTypePath:TypePath = {
-                    pack: ['hxbitecs'],
-                    name: 'HxComponent',
-                    params: [TPType(TypeTools.toComplexType(componentType))]
-                };
+                var wrapperTypePath = MacroUtils.generateHxComponentTypePath(componentType);
 
                 if (!hasInit) {
                     // Add component and return wrapper
@@ -182,113 +172,99 @@ class Hx {
         }
     }
 
+    /**
+     * Common initialization logic for both SoA and AoS components.
+     * Extracts, validates, and merges init fields with defaults.
+     */
+    static function prepareInitialization(
+        componentFields:Array<MacroUtils.ComponentFieldInfo>,
+        defaults:Null<Map<String, Expr>>,
+        hasInit:Bool,
+        init:Expr,
+        pos:Position
+    ):InitializationData {
+        var fieldValues = new Map<String, Expr>();
+
+        // Validate defaults (do this once upfront)
+        if (defaults != null) {
+            MacroUtils.validateDefaultFields(defaults, componentFields, pos);
+        }
+
+        if (!hasInit) {
+            // Use defaults if available
+            if (defaults != null) {
+                for (field in componentFields) {
+                    if (defaults.exists(field.name)) {
+                        fieldValues.set(field.name, defaults.get(field.name));
+                    }
+                }
+            }
+        } else {
+            // Extract and validate init fields
+            var initFields = switch init.expr {
+                case EObjectDecl(fields): fields;
+                case _: Context.error('Initializer must be an object literal like {x: 10, y: 20}', init.pos);
+            };
+
+            MacroUtils.validateInitFields(initFields, componentFields, pos);
+
+            // Build merged map (init overrides defaults)
+            var initFieldMap = new Map<String, Expr>();
+            for (initField in initFields) {
+                initFieldMap.set(initField.field, initField.expr);
+            }
+
+            for (field in componentFields) {
+                var fieldName = field.name;
+                var fieldValue:Expr = null;
+
+                // Init value takes precedence
+                if (initFieldMap.exists(fieldName)) {
+                    fieldValue = initFieldMap.get(fieldName);
+                } else if (defaults != null && defaults.exists(fieldName)) {
+                    fieldValue = defaults.get(fieldName);
+                }
+
+                if (fieldValue != null) {
+                    fieldValues.set(fieldName, fieldValue);
+                }
+            }
+        }
+
+        return {
+            fieldValues: fieldValues,
+            hasValues: fieldValues.keys().hasNext()
+        };
+    }
+
     static function generateStructuredInit(world:Expr, eid:Expr, component:Expr, componentType:Type,
             pattern:MacroUtils.ComponentPattern, hasInit:Bool, init:Expr, pos:Position):Expr {
 
-        // Get component fields
         var componentFields = MacroUtils.getComponentFields(componentType);
-
-        // Generate wrapper type path
-        var wrapperTypePath:TypePath = {
-            pack: ['hxbitecs'],
-            name: 'HxComponent',
-            params: [TPType(TypeTools.toComplexType(componentType))]
-        };
-
-        // Merge typedef-level and field-level defaults (field-level wins)
+        var wrapperTypePath = MacroUtils.generateHxComponentTypePath(componentType);
         var defaults = mergeDefaults(componentType, componentFields);
 
-        if (!hasInit) {
-            // If no init provided but we have defaults, use them
-            if (defaults != null && defaults.keys().hasNext()) {
-                // Validate defaults: check for extra fields not in component
-                var componentFieldNames = [for (f in componentFields) f.name];
-                for (fieldName in defaults.keys()) {
-                    if (!componentFieldNames.contains(fieldName)) {
-                        Context.warning('Default field "$fieldName" does not exist in component. Available fields: ${componentFieldNames.join(", ")}', pos);
-                    }
-                }
+        var initData = prepareInitialization(componentFields, defaults, hasInit, init, pos);
 
-                // Generate assignments from defaults
-                var assignments:Array<Expr> = [];
-                for (fieldName in defaults.keys()) {
-                    if (componentFieldNames.contains(fieldName)) {
-                        var defaultValue = defaults.get(fieldName);
-                        assignments.push(macro __w.$fieldName = $defaultValue);
-                    }
-                }
-
-                return macro {
-                    var __comp = $component;
-                    bitecs.Bitecs.addComponent($world, $eid, __comp);
-                    var __w = new $wrapperTypePath({ store: __comp, eid: $eid });
-                    $b{assignments};
-                    __w;
-                };
-            } else {
-                // No init and no defaults - just add component and return wrapper
-                return macro {
-                    var __comp = $component;
-                    bitecs.Bitecs.addComponent($world, $eid, __comp);
-                    new $wrapperTypePath({ store: __comp, eid: $eid });
-                };
-            }
+        if (!initData.hasValues) {
+            // No init and no defaults - just add component and return wrapper
+            return macro {
+                var __comp = $component;
+                bitecs.Bitecs.addComponent($world, $eid, __comp);
+                new $wrapperTypePath({ store: __comp, eid: $eid });
+            };
         }
 
-        // Extract initializer fields from the object literal
-        var initFields = switch init.expr {
-            case EObjectDecl(fields):
-                fields;
-            case _:
-                Context.error('Initializer must be an object literal like {x: 10, y: 20}', init.pos);
-        };
-
-        // Validate fields: check for extra fields not in component
-        var componentFieldNames = [for (f in componentFields) f.name];
-        for (initField in initFields) {
-            if (!componentFieldNames.contains(initField.field)) {
-                Context.error('Field "${initField.field}" does not exist in component. Available fields: ${componentFieldNames.join(", ")}',
-                    initField.expr.pos);
-            }
-        }
-
-        // Validate defaults: check for extra fields not in component
-        if (defaults != null) {
-            for (fieldName in defaults.keys()) {
-                if (!componentFieldNames.contains(fieldName)) {
-                    Context.warning('Default field "$fieldName" does not exist in component. Available fields: ${componentFieldNames.join(", ")}', pos);
-                }
-            }
-        }
-
-        // Build combined field assignments: init values override defaults
+        // Generate assignments from field values
         var assignments:Array<Expr> = [];
-        var initFieldMap = new Map<String, Expr>();
-        for (initField in initFields) {
-            initFieldMap.set(initField.field, initField.expr);
-        }
-
-        // Assign fields in order of component definition
         for (componentField in componentFields) {
             var fieldName = componentField.name;
-            var fieldValue:Expr = null;
-
-            // Check if provided in init
-            if (initFieldMap.exists(fieldName)) {
-                fieldValue = initFieldMap.get(fieldName);
-            }
-            // Otherwise check if has default
-            else if (defaults != null && defaults.exists(fieldName)) {
-                fieldValue = defaults.get(fieldName);
-            }
-
-            // Generate assignment if we have a value
-            if (fieldValue != null) {
+            if (initData.fieldValues.exists(fieldName)) {
+                var fieldValue = initData.fieldValues.get(fieldName);
                 assignments.push(macro __w.$fieldName = $fieldValue);
             }
         }
 
-        // Generate the full initialization block
         return macro {
             var __comp = $component;
             bitecs.Bitecs.addComponent($world, $eid, __comp);
@@ -325,107 +301,13 @@ class Hx {
             case _: Context.error('generateAoSInit called with non-AoS pattern', pos);
         };
 
-        // Get component fields (from element type of array)
         var componentFields = MacroUtils.getComponentFields(componentType);
-
-        // Generate wrapper type path
-        var wrapperTypePath:TypePath = {
-            pack: ['hxbitecs'],
-            name: 'HxComponent',
-            params: [TPType(TypeTools.toComplexType(componentType))]
-        };
-
-        // Merge typedef-level and field-level defaults (field-level wins)
+        var wrapperTypePath = MacroUtils.generateHxComponentTypePath(componentType);
         var defaults = mergeDefaults(elementType, componentFields);
 
-        // Generate element type complex type for typing the init object
-        var elementComplexType = TypeTools.toComplexType(elementType);
+        var initData = prepareInitialization(componentFields, defaults, hasInit, init, pos);
 
-        // Build the initialization object
-        var initObject:Expr = null;
-
-        if (!hasInit) {
-            // No init provided - use all defaults if available
-            if (defaults != null && defaults.keys().hasNext()) {
-                var objectFields:Array<ObjectField> = [];
-                for (field in componentFields) {
-                    if (defaults.exists(field.name)) {
-                        objectFields.push({ field: field.name, expr: defaults.get(field.name) });
-                    }
-                }
-
-                if (objectFields.length > 0) {
-                    initObject = { expr: EObjectDecl(objectFields), pos: pos };
-                }
-            }
-        } else {
-            // Init provided - merge with defaults
-            var initFields = switch init.expr {
-                case EObjectDecl(fields):
-                    fields;
-                case _:
-                    Context.error('Initializer must be an object literal like {hp: 100, maxHp: 150}', init.pos);
-            };
-
-            // Validate init fields
-            var componentFieldNames = [for (f in componentFields) f.name];
-            for (initField in initFields) {
-                if (!componentFieldNames.contains(initField.field)) {
-                    Context.error('Field "${initField.field}" does not exist in component. Available fields: ${componentFieldNames.join(", ")}',
-                        init.pos);
-                }
-            }
-
-            // Validate defaults
-            if (defaults != null) {
-                for (fieldName in defaults.keys()) {
-                    if (!componentFieldNames.contains(fieldName)) {
-                        Context.warning('Default field "$fieldName" does not exist in component. Available fields: ${componentFieldNames.join(", ")}', pos);
-                    }
-                }
-            }
-
-            // Build merged object: init values override defaults
-            var initFieldMap = new Map<String, Expr>();
-            for (initField in initFields) {
-                initFieldMap.set(initField.field, initField.expr);
-            }
-
-            var objectFields:Array<ObjectField> = [];
-            for (field in componentFields) {
-                var fieldName = field.name;
-                var fieldValue:Expr = null;
-
-                // Check if provided in init
-                if (initFieldMap.exists(fieldName)) {
-                    fieldValue = initFieldMap.get(fieldName);
-                }
-                // Otherwise check if has default
-                else if (defaults != null && defaults.exists(fieldName)) {
-                    fieldValue = defaults.get(fieldName);
-                }
-
-                // Add to object if we have a value
-                if (fieldValue != null) {
-                    objectFields.push({ field: fieldName, expr: fieldValue });
-                }
-            }
-
-            if (objectFields.length > 0) {
-                initObject = { expr: EObjectDecl(objectFields), pos: pos };
-            }
-        }
-
-        // Generate code
-        if (initObject != null) {
-            return macro {
-                var __comp = $component;
-                bitecs.Bitecs.addComponent($world, $eid, __comp);
-                var __init:$elementComplexType = $initObject;
-                __comp[$eid] = __init;
-                new $wrapperTypePath({ store: __comp, eid: $eid });
-            };
-        } else {
+        if (!initData.hasValues) {
             // No initialization - just add component and return wrapper
             return macro {
                 var __comp = $component;
@@ -433,6 +315,26 @@ class Hx {
                 new $wrapperTypePath({ store: __comp, eid: $eid });
             };
         }
+
+        // Build initialization object from field values
+        var objectFields:Array<ObjectField> = [];
+        for (field in componentFields) {
+            var fieldName = field.name;
+            if (initData.fieldValues.exists(fieldName)) {
+                objectFields.push({ field: fieldName, expr: initData.fieldValues.get(fieldName) });
+            }
+        }
+
+        var initObject = { expr: EObjectDecl(objectFields), pos: pos };
+        var elementComplexType = TypeTools.toComplexType(elementType);
+
+        return macro {
+            var __comp = $component;
+            bitecs.Bitecs.addComponent($world, $eid, __comp);
+            var __init:$elementComplexType = $initObject;
+            __comp[$eid] = __init;
+            new $wrapperTypePath({ store: __comp, eid: $eid });
+        };
     }
 
     static function getImpl(eid:Expr, component:Expr):Expr {
@@ -452,11 +354,7 @@ class Hx {
         var pattern = MacroUtils.analyzeComponentType(componentType);
 
         // Generate wrapper type path
-        var wrapperTypePath:TypePath = {
-            pack: ['hxbitecs'],
-            name: 'HxComponent',
-            params: [TPType(TypeTools.toComplexType(componentType))]
-        };
+        var wrapperTypePath = MacroUtils.generateHxComponentTypePath(componentType);
 
         // Generate code based on pattern
         return switch pattern {
@@ -486,21 +384,10 @@ class Hx {
         var queryTermInfo = TermUtils.parseTermsFromExpr(worldType, termsExpr);
 
         // Generate EntityWrapperMacro type path
-        var wrapperTypePath:TypePath = {
-            pack: ['hxbitecs'],
-            name: 'EntityWrapperMacro',
-            params: [
-                TPType(TypeTools.toComplexType(worldType)),
-                TPExpr(termsExpr)
-            ]
-        };
+        var wrapperTypePath = MacroUtils.generateEntityWrapperTypePath(worldType, termsExpr);
 
         // Generate component store expressions from allComponents
-        var componentStoreExprs:Array<Expr> = [];
-        for (termInfo in queryTermInfo.allComponents) {
-            var componentName = termInfo.name;
-            componentStoreExprs.push(macro $worldExpr.$componentName);
-        }
+        var componentStoreExprs = MacroUtils.generateComponentStoreExprs(worldExpr, queryTermInfo.allComponents);
 
         // Return new EntityWrapper(eid, [component stores])
         return macro new $wrapperTypePath($eidExpr, $a{componentStoreExprs});

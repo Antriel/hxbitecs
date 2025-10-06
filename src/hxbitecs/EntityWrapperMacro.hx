@@ -17,7 +17,7 @@ function build() {
             var baseName = MacroUtils.getBaseName(world);
             var queryTermInfo = TermUtils.parseTerms(world, terms);
             var name = 'EntityWrapper${baseName}_${queryTermInfo.structureId}';
-            var ct = TPath({ pack: ['hxbitecs'], name: name });
+            var ct = TPath({ pack: MacroUtils.HXBITECS_PACK, name: name });
 
             return MacroUtils.buildGenericType(name, ct, () ->
                 generateWrapper(name, world, queryTermInfo.allComponents));

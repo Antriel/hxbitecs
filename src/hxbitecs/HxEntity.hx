@@ -40,7 +40,7 @@ function build() {
             var baseName = MacroUtils.getBaseName(world);
             var termInfo = TermUtils.parseTerms(world, terms, true); // Allow operators
             var name = 'EntityWrapper${baseName}_${termInfo.structureId}';
-            var ct = TPath({ pack: ['hxbitecs'], name: name });
+            var ct = TPath({ pack: MacroUtils.HXBITECS_PACK, name: name });
 
             // Ensure EntityWrapper class is generated (needed for instantiation)
             MacroUtils.buildGenericType(name, ct, () -> generateEntityWrapper(name, world, terms, termInfo));
@@ -115,8 +115,8 @@ function generateStructuralType(componentInfos:Array<TermUtils.TermInfo>):Comple
             case SoA(_) | AoS(_) | Tag:
                 // For other patterns, use HxComponent wrapper (regular field)
                 FVar(TPath({
-                    pack: ['hxbitecs'],
-                    name: 'HxComponent',
+                    pack: MacroUtils.HXBITECS_PACK,
+                    name: MacroUtils.HX_COMPONENT,
                     params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
                 }));
         };
