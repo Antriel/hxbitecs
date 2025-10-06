@@ -128,18 +128,20 @@ typedef ComponentFieldInfo = {
 
     name:String,
     type:Type,
-    complexType:ComplexType
+    complexType:ComplexType,
+    defaultExpr:Null<Expr> // From @:default(value) metadata
 
 }
 
 function getComponentFields(componentType:Type):Array<ComponentFieldInfo> {
-    return switch analyzeComponentType(componentType) {
-        case SoA(fields):
-            [for (field in fields) {
-                name: field.name,
-                type: field.type,
-                complexType: TypeTools.toComplexType(field.type)
-            }];
+    // For SoA, extract fields directly from the anonymous structure to get metadata
+    var pattern = analyzeComponentType(componentType);
+
+    return switch pattern {
+        case SoA(_):
+            // For SoA, we need to access the underlying anonymous structure directly
+            // to get field metadata (since analyzeComponentType loses it)
+            extractSoAFields(componentType);
         case AoS(elementType):
             // Follow typedefs to get to the actual anonymous structure
             var followedType = Context.follow(elementType);
@@ -148,7 +150,8 @@ function getComponentFields(componentType:Type):Array<ComponentFieldInfo> {
                     [for (field in a.get().fields) {
                         name: field.name,
                         type: field.type,
-                        complexType: TypeTools.toComplexType(field.type)
+                        complexType: TypeTools.toComplexType(field.type),
+                        defaultExpr: extractFieldDefault(field)
                     }];
                 case _:
                     Context.error('AoS element type must be anonymous structure (got: $followedType)', Context.currentPos());
@@ -158,6 +161,48 @@ function getComponentFields(componentType:Type):Array<ComponentFieldInfo> {
         case Tag:
             [];
     }
+}
+
+/**
+ * Extract fields from SoA component, recursively following type aliases.
+ */
+function extractSoAFields(componentType:Type):Array<ComponentFieldInfo> {
+    return switch componentType {
+        case TAnonymous(a):
+            var anonFields = a.get().fields;
+            // SoA fields are Array<T>, we want the element type T
+            [for (field in anonFields) {
+                var elementType = switch field.type {
+                    case TInst(_.get() => { name: "Array" }, [et]): et;
+                    case _: field.type;
+                };
+                {
+                    name: field.name,
+                    type: elementType,
+                    complexType: TypeTools.toComplexType(elementType),
+                    defaultExpr: extractFieldDefault(field)
+                }
+            }];
+        case TAbstract(t, _):
+            extractSoAFields(t.get().type);
+        case TType(t, _):
+            extractSoAFields(t.get().type);
+        case _:
+            Context.error('SoA component must have anonymous structure type (got: $componentType)', Context.currentPos());
+    };
+}
+
+/**
+ * Extract @:default(value) metadata from a field.
+ */
+function extractFieldDefault(field:ClassField):Null<Expr> {
+    if (field.meta.has(':default')) {
+        var entry = field.meta.extract(':default')[0];
+        if (entry != null && entry.params != null && entry.params.length > 0) {
+            return entry.params[0];
+        }
+    }
+    return null;
 }
 
 function isTypedArray(typeName:String):Bool {

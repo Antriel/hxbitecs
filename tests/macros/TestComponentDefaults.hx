@@ -49,20 +49,19 @@ class TestComponentDefaults extends Test {
         Assert.equals(40.0, wrapper.z);
     }
 
-    // FIXME: Empty object {} causes Haxe type checker issues
-    // public function testSoAWithDefaultsEmptyInit() {
-    //     // Test empty initialization - all fields use defaults
-    //     var eid = Bitecs.addEntity(world);
-    //     var wrapper = Hx.addComponent(world, eid, world.pos, {});
-    //     Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
-    //     Assert.equals(0.0, world.pos.x[eid]); // Default
-    //     Assert.equals(-1.0, world.pos.y[eid]); // Default
-    //     Assert.equals(5.0, world.pos.z[eid]); // Default
-    //     // Verify wrapper
-    //     Assert.equals(0.0, wrapper.x);
-    //     Assert.equals(-1.0, wrapper.y);
-    //     Assert.equals(5.0, wrapper.z);
-    // }
+    public function testSoAWithDefaultsEmptyInit() {
+        // Test empty initialization - all fields use defaults
+        var eid = Bitecs.addEntity(world);
+        var wrapper = Hx.addComponent(world, eid, world.pos, { });
+        Assert.isTrue(Bitecs.hasComponent(world, eid, world.pos));
+        Assert.equals(0.0, world.pos.x[eid]); // Default
+        Assert.equals(-1.0, world.pos.y[eid]); // Default
+        Assert.equals(5.0, world.pos.z[eid]); // Default
+        // Verify wrapper
+        Assert.equals(0.0, wrapper.x);
+        Assert.equals(-1.0, wrapper.y);
+        Assert.equals(5.0, wrapper.z);
+    }
 
     public function testSoAWithDefaultsNoInit() {
         // Test without initialization object - should use defaults
@@ -95,18 +94,17 @@ class TestComponentDefaults extends Test {
         Assert.equals(100, wrapper.maxHp);
     }
 
-    // FIXME: Empty object {} causes Haxe type checker issues
-    // public function testAoSWithDefaultsEmptyInit() {
-    //     // Test AoS with empty init - all defaults
-    //     var eid = Bitecs.addEntity(world);
-    //     var wrapper = Hx.addComponent(world, eid, world.health, {});
-    //     Assert.isTrue(Bitecs.hasComponent(world, eid, world.health));
-    //     Assert.equals(100, world.health[eid].hp); // Default
-    //     Assert.equals(100, world.health[eid].maxHp); // Default
-    //     // Verify wrapper
-    //     Assert.equals(100, wrapper.hp);
-    //     Assert.equals(100, wrapper.maxHp);
-    // }
+    public function testAoSWithDefaultsEmptyInit() {
+        // Test AoS with empty init - all defaults
+        var eid = Bitecs.addEntity(world);
+        var wrapper = Hx.addComponent(world, eid, world.health, { });
+        Assert.isTrue(Bitecs.hasComponent(world, eid, world.health));
+        Assert.equals(100, world.health[eid].hp); // Default
+        Assert.equals(100, world.health[eid].maxHp); // Default
+        // Verify wrapper
+        Assert.equals(100, wrapper.hp);
+        Assert.equals(100, wrapper.maxHp);
+    }
 
     public function testWithoutTypedefNoDefaults() {
         // Test component without typedef - should work as before (no defaults)
@@ -222,6 +220,71 @@ class TestComponentDefaults extends Test {
         // c should be uninitialized (no default provided for it)
     }
 
+    public function testPerFieldDefaultsSoA() {
+        // Test per-field @:default metadata for SoA components
+        var eid = Bitecs.addEntity(world);
+
+        var wrapper = Hx.addComponent(world, eid, world.perFieldPos, { x: 10.0 });
+
+        Assert.isTrue(Bitecs.hasComponent(world, eid, world.perFieldPos));
+        Assert.equals(10.0, world.perFieldPos.x[eid]); // Provided
+        Assert.equals(100.0, world.perFieldPos.y[eid]); // Per-field default
+        Assert.equals(200.0, world.perFieldPos.z[eid]); // Per-field default
+
+        // Verify wrapper
+        Assert.equals(10.0, wrapper.x);
+        Assert.equals(100.0, wrapper.y);
+        Assert.equals(200.0, wrapper.z);
+    }
+
+    public function testPerFieldDefaultsAoS() {
+        // Test per-field @:default metadata for AoS components
+        var eid = Bitecs.addEntity(world);
+
+        var wrapper = Hx.addComponent(world, eid, world.perFieldHealth, { current: 50 });
+
+        Assert.isTrue(Bitecs.hasComponent(world, eid, world.perFieldHealth));
+        Assert.equals(50, world.perFieldHealth[eid].current); // Provided
+        Assert.equals(100, world.perFieldHealth[eid].max); // Per-field default
+
+        // Verify wrapper
+        Assert.equals(50, wrapper.current);
+        Assert.equals(100, wrapper.max);
+    }
+
+    public function testMixedDefaultsSoA() {
+        // Test typedef-level @:defaults mixed with field-level @:default
+        // Field-level should override typedef-level
+        var eid = Bitecs.addEntity(world);
+
+        var wrapper = Hx.addComponent(world, eid, world.mixedDefaults);
+
+        Assert.isTrue(Bitecs.hasComponent(world, eid, world.mixedDefaults));
+        Assert.equals(1.0, world.mixedDefaults.a[eid]); // Typedef default
+        Assert.equals(999.0, world.mixedDefaults.b[eid]); // Field default overrides typedef
+        Assert.equals(3.0, world.mixedDefaults.c[eid]); // Typedef default
+
+        // Verify wrapper
+        Assert.equals(1.0, wrapper.a);
+        Assert.equals(999.0, wrapper.b);
+        Assert.equals(3.0, wrapper.c);
+    }
+
+    public function testMixedDefaultsAoS() {
+        // Test typedef-level @:defaults mixed with field-level @:default for AoS
+        var eid = Bitecs.addEntity(world);
+
+        var wrapper = Hx.addComponent(world, eid, world.mixedHealthAoS, { current: 75 });
+
+        Assert.isTrue(Bitecs.hasComponent(world, eid, world.mixedHealthAoS));
+        Assert.equals(75, world.mixedHealthAoS[eid].current); // Provided
+        Assert.equals(150, world.mixedHealthAoS[eid].max); // Field default overrides typedef
+
+        // Verify wrapper
+        Assert.equals(75, wrapper.current);
+        Assert.equals(150, wrapper.max);
+    }
+
 }
 
 // Typedef with defaults for SoA
@@ -244,6 +307,45 @@ typedef StatsData = {strength:Int, dexterity:Int, intelligence:Int, speed:Float}
 @:defaults({ b: 99 })
 typedef PartialData = {a:Int, b:Int, c:Int};
 
+// Typedef with per-field @:default metadata (no typedef-level @:defaults)
+typedef PerFieldVec3 = {
+
+    var x:Float;
+    @:default(100.0) var y:Float;
+    @:default(200.0) var z:Float;
+
+};
+
+// Typedef with per-field @:default for AoS
+typedef PerFieldHealth = {
+
+    var current:Int;
+    @:default(100) var max:Int;
+
+};
+
+// Typedef with both typedef-level @:defaults and field-level @:default
+// Field-level should win
+
+@:defaults({ a: 1.0, b: 2.0, c: 3.0 })
+typedef MixedDefaultsData = {
+
+    var a:Float;
+    @:default(999.0) var b:Float; // Overrides typedef default of 2.0
+    var c:Float;
+
+};
+
+// Typedef with both for AoS
+
+@:defaults({ current: 50, max: 100 })
+typedef MixedHealthData = {
+
+    var current:Int;
+    @:default(150) var max:Int; // Overrides typedef default of 100
+
+};
+
 @:publicFields class DefaultsWorld {
 
     function new() { }
@@ -262,5 +364,17 @@ typedef PartialData = {a:Int, b:Int, c:Int};
 
     // SoA component with partial defaults
     var partialDefaults:SoA<PartialData> = new SoA<PartialData>();
+
+    // SoA component with per-field defaults
+    var perFieldPos:SoA<PerFieldVec3> = new SoA<PerFieldVec3>();
+
+    // AoS component with per-field defaults
+    var perFieldHealth:Array<PerFieldHealth> = new Array<PerFieldHealth>();
+
+    // SoA component with mixed typedef and field defaults
+    var mixedDefaults:SoA<MixedDefaultsData> = new SoA<MixedDefaultsData>();
+
+    // AoS component with mixed typedef and field defaults
+    var mixedHealthAoS:Array<MixedHealthData> = new Array<MixedHealthData>();
 
 }

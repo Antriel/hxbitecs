@@ -128,9 +128,9 @@ class Hx {
             case _:
         }
 
-        // Normalize init - if it's null or not provided, treat as no initialization
+        // Normalize init - if it's null, not provided, or empty block {}, treat as no initialization
         var hasInit = switch init {
-            case null | { expr: EConst(CIdent("null")) }: false;
+            case null | { expr: EConst(CIdent("null")) } | { expr: EBlock([]) }: false;
             case _: true;
         };
 
@@ -195,8 +195,8 @@ class Hx {
             params: [TPType(TypeTools.toComplexType(componentType))]
         };
 
-        // Get default values from metadata
-        var defaults = MacroUtils.getComponentDefaults(componentType);
+        // Merge typedef-level and field-level defaults (field-level wins)
+        var defaults = mergeDefaults(componentType, componentFields);
 
         if (!hasInit) {
             // If no init provided but we have defaults, use them
@@ -297,6 +297,25 @@ class Hx {
             __w;
         };
     }
+    /**
+     * Merge typedef-level @:defaults with field-level @:default metadata.
+     * Field-level takes precedence over typedef-level.
+     */
+    static function mergeDefaults(componentType:Type, componentFields:Array<MacroUtils.ComponentFieldInfo>):Null<Map<String, Expr>> {
+        // Start with typedef-level defaults
+        var typedefDefaults = MacroUtils.getComponentDefaults(componentType);
+        var merged = typedefDefaults != null ? typedefDefaults.copy() : new Map<String, Expr>();
+
+        // Override with field-level defaults
+        for (field in componentFields) {
+            if (field.defaultExpr != null) {
+                merged.set(field.name, field.defaultExpr);
+            }
+        }
+
+        return merged.keys().hasNext() ? merged : null;
+    }
+
     static function generateAoSInit(world:Expr, eid:Expr, component:Expr, componentType:Type,
             pattern:MacroUtils.ComponentPattern, hasInit:Bool, init:Expr, pos:Position):Expr {
 
@@ -316,8 +335,8 @@ class Hx {
             params: [TPType(TypeTools.toComplexType(componentType))]
         };
 
-        // Get default values from metadata (check element type, not array type)
-        var defaults = MacroUtils.getComponentDefaults(elementType);
+        // Merge typedef-level and field-level defaults (field-level wins)
+        var defaults = mergeDefaults(elementType, componentFields);
 
         // Generate element type complex type for typing the init object
         var elementComplexType = TypeTools.toComplexType(elementType);

@@ -30,10 +30,22 @@ function toSoA(field:ClassField):Field {
         Context.error('Unable to convert field type ${field.name}', Context.currentPos());
     }
 
+    // Copy @:default metadata from original field to generated field
+    var fieldMeta:Metadata = [];
+    if (field.meta.has(':default')) {
+        var entry = field.meta.extract(':default')[0];
+        fieldMeta.push({
+            name: ':default',
+            params: entry.params,
+            pos: entry.pos
+        });
+    }
+
     return {
         name: field.name,
         kind: FVar(macro :Array<$fieldType>),
-        pos: Context.currentPos()
+        pos: Context.currentPos(),
+        meta: fieldMeta
     }
 }
 
