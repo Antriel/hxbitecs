@@ -29,7 +29,7 @@ class Hx {
      * Type-safe component initializer macro that wraps bitecs.addComponent
      * with field validation and ergonomic initialization syntax.
      *
-     * Usage: Hx.addComponent(world, eid, pos, {x: 10, y: 20})
+     * Usage: Hx.addComponent(world, eid, world.pos, {x: 10, y: 20})
      */
     public static macro function addComponent(world:Expr, eid:Expr, component:Expr, ?init:Expr):Expr {
         final e = addComponentImpl(world, eid, component, init);
@@ -149,7 +149,7 @@ class Hx {
                 // Just add the component
                 macro bitecs.Bitecs.addComponent($world, $eid, $component);
 
-            case SimpleArray(_) | AoS(_):
+            case SimpleArray(_):
                 // Generate wrapper type path
                 var wrapperTypePath:TypePath = {
                     pack: ['hxbitecs'],
@@ -174,6 +174,9 @@ class Hx {
                     };
                 }
 
+            case AoS(_):
+                generateAoSInit(world, eid, component, componentType, pattern, hasInit, init, pos);
+
             case SoA(_):
                 generateStructuredInit(world, eid, component, componentType, pattern, hasInit, init, pos);
         }
@@ -192,13 +195,44 @@ class Hx {
             params: [TPType(TypeTools.toComplexType(componentType))]
         };
 
+        // Get default values from metadata
+        var defaults = MacroUtils.getComponentDefaults(componentType);
+
         if (!hasInit) {
-            // Add component and return wrapper
-            return macro {
-                var __comp = $component;
-                bitecs.Bitecs.addComponent($world, $eid, __comp);
-                new $wrapperTypePath({ store: __comp, eid: $eid });
-            };
+            // If no init provided but we have defaults, use them
+            if (defaults != null && defaults.keys().hasNext()) {
+                // Validate defaults: check for extra fields not in component
+                var componentFieldNames = [for (f in componentFields) f.name];
+                for (fieldName in defaults.keys()) {
+                    if (!componentFieldNames.contains(fieldName)) {
+                        Context.warning('Default field "$fieldName" does not exist in component. Available fields: ${componentFieldNames.join(", ")}', pos);
+                    }
+                }
+
+                // Generate assignments from defaults
+                var assignments:Array<Expr> = [];
+                for (fieldName in defaults.keys()) {
+                    if (componentFieldNames.contains(fieldName)) {
+                        var defaultValue = defaults.get(fieldName);
+                        assignments.push(macro __w.$fieldName = $defaultValue);
+                    }
+                }
+
+                return macro {
+                    var __comp = $component;
+                    bitecs.Bitecs.addComponent($world, $eid, __comp);
+                    var __w = new $wrapperTypePath({ store: __comp, eid: $eid });
+                    $b{assignments};
+                    __w;
+                };
+            } else {
+                // No init and no defaults - just add component and return wrapper
+                return macro {
+                    var __comp = $component;
+                    bitecs.Bitecs.addComponent($world, $eid, __comp);
+                    new $wrapperTypePath({ store: __comp, eid: $eid });
+                };
+            }
         }
 
         // Extract initializer fields from the object literal
@@ -218,12 +252,40 @@ class Hx {
             }
         }
 
-        // Generate field assignments
+        // Validate defaults: check for extra fields not in component
+        if (defaults != null) {
+            for (fieldName in defaults.keys()) {
+                if (!componentFieldNames.contains(fieldName)) {
+                    Context.warning('Default field "$fieldName" does not exist in component. Available fields: ${componentFieldNames.join(", ")}', pos);
+                }
+            }
+        }
+
+        // Build combined field assignments: init values override defaults
         var assignments:Array<Expr> = [];
+        var initFieldMap = new Map<String, Expr>();
         for (initField in initFields) {
-            var fieldName = initField.field;
-            var fieldValue = initField.expr;
-            assignments.push(macro __w.$fieldName = $fieldValue);
+            initFieldMap.set(initField.field, initField.expr);
+        }
+
+        // Assign fields in order of component definition
+        for (componentField in componentFields) {
+            var fieldName = componentField.name;
+            var fieldValue:Expr = null;
+
+            // Check if provided in init
+            if (initFieldMap.exists(fieldName)) {
+                fieldValue = initFieldMap.get(fieldName);
+            }
+            // Otherwise check if has default
+            else if (defaults != null && defaults.exists(fieldName)) {
+                fieldValue = defaults.get(fieldName);
+            }
+
+            // Generate assignment if we have a value
+            if (fieldValue != null) {
+                assignments.push(macro __w.$fieldName = $fieldValue);
+            }
         }
 
         // Generate the full initialization block
@@ -235,6 +297,125 @@ class Hx {
             __w;
         };
     }
+    static function generateAoSInit(world:Expr, eid:Expr, component:Expr, componentType:Type,
+            pattern:MacroUtils.ComponentPattern, hasInit:Bool, init:Expr, pos:Position):Expr {
+
+        // Get element type from pattern
+        var elementType = switch pattern {
+            case AoS(et): et;
+            case _: Context.error('generateAoSInit called with non-AoS pattern', pos);
+        };
+
+        // Get component fields (from element type of array)
+        var componentFields = MacroUtils.getComponentFields(componentType);
+
+        // Generate wrapper type path
+        var wrapperTypePath:TypePath = {
+            pack: ['hxbitecs'],
+            name: 'HxComponent',
+            params: [TPType(TypeTools.toComplexType(componentType))]
+        };
+
+        // Get default values from metadata (check element type, not array type)
+        var defaults = MacroUtils.getComponentDefaults(elementType);
+
+        // Generate element type complex type for typing the init object
+        var elementComplexType = TypeTools.toComplexType(elementType);
+
+        // Build the initialization object
+        var initObject:Expr = null;
+
+        if (!hasInit) {
+            // No init provided - use all defaults if available
+            if (defaults != null && defaults.keys().hasNext()) {
+                var objectFields:Array<ObjectField> = [];
+                for (field in componentFields) {
+                    if (defaults.exists(field.name)) {
+                        objectFields.push({ field: field.name, expr: defaults.get(field.name) });
+                    }
+                }
+
+                if (objectFields.length > 0) {
+                    initObject = { expr: EObjectDecl(objectFields), pos: pos };
+                }
+            }
+        } else {
+            // Init provided - merge with defaults
+            var initFields = switch init.expr {
+                case EObjectDecl(fields):
+                    fields;
+                case _:
+                    Context.error('Initializer must be an object literal like {hp: 100, maxHp: 150}', init.pos);
+            };
+
+            // Validate init fields
+            var componentFieldNames = [for (f in componentFields) f.name];
+            for (initField in initFields) {
+                if (!componentFieldNames.contains(initField.field)) {
+                    Context.error('Field "${initField.field}" does not exist in component. Available fields: ${componentFieldNames.join(", ")}',
+                        init.pos);
+                }
+            }
+
+            // Validate defaults
+            if (defaults != null) {
+                for (fieldName in defaults.keys()) {
+                    if (!componentFieldNames.contains(fieldName)) {
+                        Context.warning('Default field "$fieldName" does not exist in component. Available fields: ${componentFieldNames.join(", ")}', pos);
+                    }
+                }
+            }
+
+            // Build merged object: init values override defaults
+            var initFieldMap = new Map<String, Expr>();
+            for (initField in initFields) {
+                initFieldMap.set(initField.field, initField.expr);
+            }
+
+            var objectFields:Array<ObjectField> = [];
+            for (field in componentFields) {
+                var fieldName = field.name;
+                var fieldValue:Expr = null;
+
+                // Check if provided in init
+                if (initFieldMap.exists(fieldName)) {
+                    fieldValue = initFieldMap.get(fieldName);
+                }
+                // Otherwise check if has default
+                else if (defaults != null && defaults.exists(fieldName)) {
+                    fieldValue = defaults.get(fieldName);
+                }
+
+                // Add to object if we have a value
+                if (fieldValue != null) {
+                    objectFields.push({ field: fieldName, expr: fieldValue });
+                }
+            }
+
+            if (objectFields.length > 0) {
+                initObject = { expr: EObjectDecl(objectFields), pos: pos };
+            }
+        }
+
+        // Generate code
+        if (initObject != null) {
+            return macro {
+                var __comp = $component;
+                bitecs.Bitecs.addComponent($world, $eid, __comp);
+                var __init:$elementComplexType = $initObject;
+                __comp[$eid] = __init;
+                new $wrapperTypePath({ store: __comp, eid: $eid });
+            };
+        } else {
+            // No initialization - just add component and return wrapper
+            return macro {
+                var __comp = $component;
+                bitecs.Bitecs.addComponent($world, $eid, __comp);
+                new $wrapperTypePath({ store: __comp, eid: $eid });
+            };
+        }
+    }
+
     static function getImpl(eid:Expr, component:Expr):Expr {
         var pos = Context.currentPos();
 

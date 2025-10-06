@@ -78,11 +78,13 @@ function extractWrapperUsingMetadata(componentType:Type):Null<Expr> {
 }
 
 function extractAoSFields(elementType:Type):Array<{name:String, type:Type}> {
-    return switch elementType {
+    // Follow typedefs to get to the actual anonymous structure
+    var followedType = Context.follow(elementType);
+    return switch followedType {
         case TAnonymous(a):
             [for (field in a.get().fields) { name: field.name, type: field.type }];
         case _:
-            Context.error('AoS element type must be anonymous structure', Context.currentPos());
+            Context.error('AoS element type must be anonymous structure (got: $followedType)', Context.currentPos());
     };
 }
 

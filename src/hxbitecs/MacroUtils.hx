@@ -101,8 +101,10 @@ function analyzeComponentType(type:Type):ComponentPattern {
             }
         case TInst(_.get() => { name: "Array" }, [elementType]):
             // Distinguish between Array<{...}> (AoS) and Array<primitive> (SimpleArray)
-            switch elementType {
-                case TAnonymous(_): AoS(elementType); // Array of anonymous structures
+            // Follow typedefs to get the actual element type
+            var followedElementType = Context.follow(elementType);
+            switch followedElementType {
+                case TAnonymous(_): AoS(elementType); // Array of anonymous structures (keep original type for metadata)
                 case _: SimpleArray(elementType); // Array of primitives
             }
         case TInst(_.get() => { name: typeName }, _) if (isTypedArray(typeName)):
@@ -139,7 +141,9 @@ function getComponentFields(componentType:Type):Array<ComponentFieldInfo> {
                 complexType: TypeTools.toComplexType(field.type)
             }];
         case AoS(elementType):
-            switch elementType {
+            // Follow typedefs to get to the actual anonymous structure
+            var followedType = Context.follow(elementType);
+            switch followedType {
                 case TAnonymous(a):
                     [for (field in a.get().fields) {
                         name: field.name,
@@ -147,7 +151,7 @@ function getComponentFields(componentType:Type):Array<ComponentFieldInfo> {
                         complexType: TypeTools.toComplexType(field.type)
                     }];
                 case _:
-                    Context.error('AoS element type must be anonymous structure', Context.currentPos());
+                    Context.error('AoS element type must be anonymous structure (got: $followedType)', Context.currentPos());
             }
         case SimpleArray(elementType):
             []; // Simple arrays have no named fields - direct array access
@@ -258,6 +262,49 @@ function generateBasicField(name:String, type:ComplexType, access:Array<Access>)
         kind: FVar(type),
         pos: pos,
         access: access
+    };
+}
+
+/**
+ * Extract default values from @:defaults metadata on component type.
+ *
+ * @param componentType The component type to check for defaults
+ * @return Map of field name -> default value expression, or null if no defaults found
+ */
+function getComponentDefaults(componentType:Type):Null<Map<String, Expr>> {
+    // Try to get metadata from the type (handles typedefs, abstracts, classes)
+    var metadata = switch componentType {
+        case TType(t, _):
+            t.get().meta;
+        case TInst(t, _):
+            t.get().meta;
+        case TAbstract(t, _):
+            t.get().meta;
+        case _:
+            null;
+    };
+
+    if (metadata == null || !metadata.has(':defaults')) {
+        return null;
+    }
+
+    // Extract the metadata entry
+    var metaEntry = metadata.extract(':defaults')[0];
+    if (metaEntry == null || metaEntry.params == null || metaEntry.params.length == 0) {
+        return null;
+    }
+
+    // Parse the defaults object literal
+    var defaultsExpr = metaEntry.params[0];
+    return switch defaultsExpr.expr {
+        case EObjectDecl(fields):
+            var map = new Map<String, Expr>();
+            for (field in fields) {
+                map.set(field.field, field.expr);
+            }
+            map;
+        case _:
+            Context.error('@:defaults metadata must contain an object literal like {x: 0.0, y: -1.0}', defaultsExpr.pos);
     };
 }
 #end

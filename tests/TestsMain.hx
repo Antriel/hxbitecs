@@ -8,6 +8,7 @@ function main() {
     runner.addCase(new macros.TestComponentAccess());
     runner.addCase(new macros.TestAdHocQuery());
     runner.addCase(new macros.TestInitComponent());
+    runner.addCase(new macros.TestComponentDefaults());
     runner.addCase(new macros.TestTypedefComponents());
     utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
     runner.run();

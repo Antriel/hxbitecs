@@ -40,12 +40,24 @@ function toSoA(field:ClassField):Field {
 function generateSoA(name:String, target:Type):Array<TypeDefinition> {
     final pos = Context.currentPos();
     var structFields = [];
+    var metadata:Metadata = [{ name: ":forward", pos: pos }];
 
     switch target {
         case TAnonymous(a):
             structFields = a.get().fields.map(toSoA);
         case TType(t, params):
             var typeRef = t.get();
+
+            // Copy @:defaults metadata from typedef to generated type
+            if (typeRef.meta.has(':defaults')) {
+                var defaultsEntry = typeRef.meta.extract(':defaults')[0];
+                metadata.push({
+                    name: ':defaults',
+                    params: defaultsEntry.params,
+                    pos: defaultsEntry.pos
+                });
+            }
+
             switch (typeRef.type) {
                 case TAnonymous(a):
                     structFields = a.get().fields.map(toSoA);
@@ -81,7 +93,7 @@ function generateSoA(name:String, target:Type):Array<TypeDefinition> {
         pack: ['hxbitecs'],
         pos: pos,
         kind: TDAbstract(structType),
-        meta: [{ name: ":forward", pos: pos }],
+        meta: metadata,
         fields: [constructor]
     }];
 }
