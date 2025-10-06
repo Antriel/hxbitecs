@@ -339,4 +339,69 @@ class TestQueryMacro extends Test {
         Assert.equals(60.0, world.pos.y[4]);
     }
 
+    public function testStructuralSubtyping() {
+        // Test that HxEntity uses structural subtyping, allowing entities with extra components
+        // to be passed to functions expecting fewer components
+
+        var query2 = new hxbitecs.HxQuery<MyQueryWorld, [pos, vel]>(world);
+        var query3 = new hxbitecs.HxQuery<MyQueryWorld, [pos, vel, health]>(world);
+
+        // Function accepting entity with [pos, vel]
+        inline function moveEntity(e:hxbitecs.HxEntity<MyQueryWorld, [pos, vel]>) {
+            e.pos.x += e.vel.x;
+            e.pos.y += e.vel.y;
+        }
+
+        // Entity from query with exactly [pos, vel] works
+        var entity2comp = query2.entity(2);
+        moveEntity(entity2comp); // ✓ Should work
+
+        // Entity from query with [pos, vel, health] also works via structural subtyping
+        var entity3comp = query3.entity(2);
+        moveEntity(entity3comp); // ✓ Should work - entity has extra components
+
+        // Entity created with Hx.entity() also works
+        var entityHx = hxbitecs.Hx.entity(world, 2, [pos, vel, health]);
+        moveEntity(entityHx); // ✓ Should work
+
+        // Verify the moves actually happened
+        Assert.isTrue(world.pos.x[2] > 0); // Should have moved
+    }
+
+    public function testStructuralSubtypingWithQueryTypedef() {
+        // Test structural subtyping works when deriving entity type from query typedef
+
+        var query = new PosVelQuery(world); // Uses typedef from top of file
+
+        // Function accepting only [pos] component
+        inline function updatePosition(e:hxbitecs.HxEntity<MyQueryWorld, [pos]>) {
+            e.pos.x = 100.0;
+        }
+
+        // Entity from PosVelQuery (which has [pos, vel]) can be passed to function expecting only [pos]
+        var entity = query.entity(3);
+        updatePosition(entity); // ✓ Should work via structural subtyping
+
+        Assert.equals(100.0, world.pos.x[3]);
+    }
+
+    public function testStructuralSubtypingDerivedType() {
+        // Test HxEntity<QueryType> structural subtyping
+
+        var query = new PosVelQuery(world);
+
+        // Function accepting base entity type
+        inline function resetPosition(e:hxbitecs.HxEntity<MyQueryWorld, [pos]>) {
+            e.pos.x = 0.0;
+            e.pos.y = 0.0;
+        }
+
+        // HxEntity<PosVelQuery> should be structurally compatible with HxEntity<MyQueryWorld, [pos]>
+        var entity:hxbitecs.HxEntity<PosVelQuery> = query.entity(5);
+        resetPosition(entity); // ✓ Should work via structural subtyping
+
+        Assert.equals(0.0, world.pos.x[5]);
+        Assert.equals(0.0, world.pos.y[5]);
+    }
+
 }

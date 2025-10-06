@@ -76,16 +76,23 @@ Entity wrappers provide type-safe access to components for a specific entity:
 - **Creating entity wrappers**:
   - `Hx.entity(world, eid, [terms])` - Create from world and component terms
   - `query.entity(eid)` - Create from existing query (shares component stores with query)
-  - Both return type `HxEntity<World, [terms]>` for the same underlying EntityWrapper class
+  - Both return type `HxEntity<World, [terms]>` matching the components
 
 - **Type annotations**:
   - `HxEntity<World, [terms]>` - Direct specification of world and component terms
   - `HxEntity<QueryType>` - Derive from query typedef (e.g., `typedef MyQuery = HxQuery<World, [pos, vel]>`)
-  - Both forms resolve to the same EntityWrapper class, ensuring full type compatibility
+  - Both forms resolve to structural types with matching component fields
+
+- **Structural subtyping for polymorphism**:
+  - `HxEntity` uses structural typing (anonymous structures), not nominal types
+  - Entities with extra components can be passed to functions expecting fewer components
+  - Example: Entity with [pos, vel, health] satisfies function parameter `HxEntity<World, [pos, vel]>`
+  - Enables flexible, polymorphic entity handling without explicit subtyping
+  - Runtime: EntityWrapper class instances satisfy structural type contracts
 
 - **Use cases**:
-  - Function parameters: `function moveEntity(e:HxEntity<MyQuery>) { e.pos.x += 10; }`
-  - Direct entity manipulation outside queries: `var e = Hx.entity(world, eid, [pos, vel]); e.pos.x = 0;`
+  - Polymorphic functions: `function move(e:HxEntity<World, [pos, vel]>) { ... }` accepts entities with any extra components
+  - Direct entity manipulation: `var e = Hx.entity(world, eid, [pos, vel]); e.pos.x = 0;`
   - Sharing component stores with queries for efficient access patterns
 
 ### API Naming Convention

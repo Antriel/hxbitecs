@@ -38,41 +38,97 @@ function build() {
         case TInst(_, [world, terms]):
             // Two parameters: HxEntity<World, [terms]>
             var baseName = MacroUtils.getBaseName(world);
-            var simpleTermInfo = TermUtils.parseTerms(world, terms, false);
-            var name = 'EntityWrapper${baseName}_${simpleTermInfo.structureId}';
+            var termInfo = TermUtils.parseTerms(world, terms, true); // Allow operators
+            var name = 'EntityWrapper${baseName}_${termInfo.structureId}';
             var ct = TPath({ pack: ['hxbitecs'], name: name });
 
-            return MacroUtils.buildGenericType(name, ct, () ->
-                generateEntityWrapper(name, world, terms, simpleTermInfo));
+            // Ensure EntityWrapper class is generated (needed for instantiation)
+            MacroUtils.buildGenericType(name, ct, () -> generateEntityWrapper(name, world, terms, termInfo));
+
+            // Return structural type instead of nominal class type
+            return generateStructuralType(termInfo.allComponents);
         case TInst(_, [queryType]):
             // One parameter: HxEntity<QueryType>
             // Extract World and Terms from the QueryType
-            return buildFromQueryType(queryType);
+            return buildStructuralFromQueryType(queryType);
 
         case _:
             Context.error("HxEntity requires one or two type parameters", Context.currentPos());
     }
 }
 
-function buildFromQueryType(queryType:Type):ComplexType {
+function buildStructuralFromQueryType(queryType:Type):ComplexType {
     var pos = Context.currentPos();
 
-    // Get the entity method's return type from the query
-    // This will be the already-generated EntityWrapper class
-    try {
-        var queryTypeE:Expr = {
-            expr: ECheckType(macro null, TypeTools.toComplexType(queryType)),
-            pos: pos
-        };
-        var entityMethodType = Context.typeof(macro $queryTypeE.entity(0));
-
-        // Convert the entity method's return type directly to ComplexType
-        // This is already the final EntityWrapper type, so we just return it
-        return TypeTools.toComplexType(entityMethodType);
-    } catch (e:Dynamic) {
-        return
-            Context.error('Failed to resolve entity wrapper type from query type ${TypeTools.toString(queryType)}: $e', pos);
+    // The trick: look at the HxQuery generic build parameters stored in the typedef
+    // When we have `typedef PosVelQuery = HxQuery<World, [terms]>`, we want to extract
+    // the original type parameters before they were resolved
+    return switch queryType {
+        case TType(_.get() => t, params) if (params.length == 2):
+            // Typedef with preserved type parameters from HxQuery<World, Terms>
+            var world = params[0];
+            var terms = params[1];
+            var termInfo = TermUtils.parseTerms(world, terms, true); // Allow operators
+            generateStructuralType(termInfo.allComponents);
+        case TType(_.get() => t, _):
+            // Typedef without parameters - need to extract from the typedef's underlying type
+            // The query.entity() method returns HxEntity<World, [terms]>, extract from there
+            try {
+                var queryTypeE:Expr = {
+                    expr: ECheckType(macro null, TypeTools.toComplexType(queryType)),
+                    pos: pos
+                };
+                var entityMethodType = Context.typeof(macro $queryTypeE.entity(0));
+                // The entity method returns our structural type, so return it directly
+                return TypeTools.toComplexType(entityMethodType);
+            } catch (e:Dynamic) {
+                Context.error('Failed to resolve entity type from query: $e', pos);
+            }
+        case TAbstract(_, [world, terms]):
+            // Direct HxQuery<World, [terms]> without typedef
+            var termInfo = TermUtils.parseTerms(world, terms, true); // Allow operators
+            generateStructuralType(termInfo.allComponents);
+        case _:
+            Context.error('Unable to extract World and terms from query type ${TypeTools.toString(queryType)}', pos);
     }
+}
+
+function generateStructuralType(componentInfos:Array<TermUtils.TermInfo>):ComplexType {
+    var fields:Array<Field> = [];
+    var pos = Context.currentPos();
+
+    // Add eid field (allow structural subtyping from final field in class)
+    fields.push({
+        name: "eid",
+        kind: FVar(TPath({ pack: [], name: 'Int' })),
+        pos: pos,
+        access: [APublic, AFinal]
+    });
+
+    // Add component fields matching EntityWrapper's public API
+    for (termInfo in componentInfos) {
+        var pattern = MacroUtils.analyzeComponentType(termInfo.componentType);
+        var fieldKind:FieldType = switch pattern {
+            case SimpleArray(elementType):
+                // For SimpleArray, properties have get/set access
+                FProp("get", "set", TypeTools.toComplexType(elementType));
+            case SoA(_) | AoS(_) | Tag:
+                // For other patterns, use HxComponent wrapper (regular field)
+                FVar(TPath({
+                    pack: ['hxbitecs'],
+                    name: 'HxComponent',
+                    params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
+                }));
+        };
+
+        fields.push({
+            name: termInfo.name,
+            kind: fieldKind,
+            pos: pos,
+            access: [APublic, AFinal]
+        });
+    }
+    return TAnonymous(fields);
 }
 
 function generateEntityWrapper(name:String, world:Type, terms:Type,
