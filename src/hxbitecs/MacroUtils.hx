@@ -12,7 +12,6 @@ final HXBITECS_PACK:Array<String> = ['hxbitecs'];
 final ENTITY_WRAPPER_MACRO:String = 'EntityWrapperMacro';
 final HX_COMPONENT:String = 'HxComponent';
 final QUERY_ITERATOR:String = 'QueryIterator';
-
 @:persistent private var generated = new Map<String, Bool>();
 
 function isGenerated(name:String):Bool {
@@ -86,6 +85,7 @@ enum ComponentPattern {
 
 function analyzeComponentType(type:Type):ComponentPattern {
     return switch type {
+        case TLazy(f): analyzeComponentType(f());
         case TAnonymous(a):
             var fields = a.get().fields;
             if (fields.length == 0) {
@@ -417,7 +417,8 @@ function generateComponentArrayExprs(componentCount:Int):Array<Expr> {
 /**
  * Validate that init fields exist in component fields, reporting errors for mismatches.
  */
-function validateInitFields(initFields:Array<ObjectField>, componentFields:Array<ComponentFieldInfo>, pos:Position):Void {
+function validateInitFields(initFields:Array<ObjectField>, componentFields:Array<ComponentFieldInfo>,
+        pos:Position):Void {
     var componentFieldNames = [for (f in componentFields) f.name];
     for (initField in initFields) {
         if (!componentFieldNames.contains(initField.field)) {
@@ -430,7 +431,8 @@ function validateInitFields(initFields:Array<ObjectField>, componentFields:Array
 /**
  * Validate that default field names exist in component fields, reporting warnings for mismatches.
  */
-function validateDefaultFields(defaults:Map<String, Expr>, componentFields:Array<ComponentFieldInfo>, pos:Position):Void {
+function validateDefaultFields(defaults:Map<String, Expr>, componentFields:Array<ComponentFieldInfo>,
+        pos:Position):Void {
     var componentFieldNames = [for (f in componentFields) f.name];
     for (fieldName in defaults.keys()) {
         if (!componentFieldNames.contains(fieldName)) {
