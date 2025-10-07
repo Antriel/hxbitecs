@@ -93,11 +93,17 @@ function generateQuery(name:String, target:Type, terms:Type,
     };
     queryFields.push(entityMethod);
 
+    final queryCt = TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' });
+
     var queryDef:TypeDefinition = {
         name: name,
         pack: MacroUtils.HXBITECS_PACK,
         pos: pos,
-        kind: TDAbstract(TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' })),
+        meta: [{
+            name: ':forward',
+            pos: pos
+        }],
+        kind: TDAbstract(queryCt, null, null, [queryCt]),
         fields: queryFields
     };
     MacroDebug.printTypeDefinition(queryDef, name);
