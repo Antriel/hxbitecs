@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 
 const COMPILE_ERRORS_DIR = __dirname;
 const RESET = '\x1b[0m';
@@ -20,51 +20,116 @@ function extractExpectedError(hxFile) {
     return match[1];
 }
 
+function extractExpectedOutputs(hxFile) {
+    const content = fs.readFileSync(hxFile, 'utf8');
+    const matches = content.matchAll(/\/\/\s*EXPECTED_OUTPUT:\s*"([^"]+)"/g);
+    return Array.from(matches).map(m => m[1]);
+}
+
 function runCompileTest(hxFile) {
     const baseName = path.basename(hxFile, '.hx');
     const projectRoot = path.resolve(COMPILE_ERRORS_DIR, '../..');
+    const content = fs.readFileSync(hxFile, 'utf8');
 
-    let expectedError;
-    try {
-        expectedError = extractExpectedError(hxFile);
-    } catch (e) {
+    // Determine test type: error test or output test
+    const hasExpectedError = content.includes('EXPECTED_ERROR:');
+    const hasExpectedOutputs = content.includes('EXPECTED_OUTPUT:');
+
+    if (!hasExpectedError && !hasExpectedOutputs) {
         return {
             name: baseName,
             status: 'fail',
-            message: e.message
+            message: 'No EXPECTED_ERROR or EXPECTED_OUTPUT comments found'
         };
     }
 
-    try {
-        // Run haxe compiler - should fail
-        // Generate CLI args equivalent to: lib.hxml, -cp tests/compile-errors, -main ClassName, -js output.js
-        execSync(`haxe lib.hxml -cp tests/compile-errors -main ${baseName} -js bin/compile-tests/${baseName}.js`, {
+    if (hasExpectedError) {
+        // Error test - compilation should fail
+        let expectedError;
+        try {
+            expectedError = extractExpectedError(hxFile);
+        } catch (e) {
+            return {
+                name: baseName,
+                status: 'fail',
+                message: e.message
+            };
+        }
+
+        try {
+            // Run haxe compiler - should fail
+            execSync(`haxe lib.hxml -cp tests/compile-errors -main ${baseName} -js bin/compile-tests/${baseName}.js`, {
+                cwd: projectRoot,
+                encoding: 'utf8',
+                stdio: 'pipe'
+            });
+
+            // If we get here, compilation succeeded when it should have failed
+            return {
+                name: baseName,
+                status: 'fail',
+                message: `Compilation succeeded, but expected error: "${expectedError}"`
+            };
+        } catch (error) {
+            // Compilation failed as expected - check error message
+            const stderr = error.stderr || error.stdout || '';
+
+            if (stderr.includes(expectedError)) {
+                return {
+                    name: baseName,
+                    status: 'pass',
+                    message: `Got expected error: "${expectedError}"`
+                };
+            } else {
+                return {
+                    name: baseName,
+                    status: 'fail',
+                    message: `Got different error than expected.\nExpected: "${expectedError}"\nActual output:\n${stderr}`
+                };
+            }
+        }
+    } else {
+        // Output test - compilation may succeed with warnings in stderr
+        const expectedOutputs = extractExpectedOutputs(hxFile);
+
+        // Use spawnSync to capture output even on success (warnings don't cause non-zero exit)
+        const result = spawnSync('haxe', [
+            'lib.hxml',
+            '-cp', 'tests/compile-errors',
+            '-main', baseName,
+            '-js', `bin/compile-tests/${baseName}.js`
+        ], {
             cwd: projectRoot,
             encoding: 'utf8',
-            stdio: 'pipe'
+            shell: true  // Use shell to ensure PATH is searched
         });
 
-        // If we get here, compilation succeeded when it should have failed
-        return {
-            name: baseName,
-            status: 'fail',
-            message: `Compilation succeeded, but expected error: "${expectedError}"`
-        };
-    } catch (error) {
-        // Compilation failed as expected - check error message
-        const stderr = error.stderr || error.stdout || '';
+        // Check for spawn error
+        if (result.error) {
+            return {
+                name: baseName,
+                status: 'fail',
+                message: `Failed to spawn process: ${result.error.message}`
+            };
+        }
 
-        if (stderr.includes(expectedError)) {
+        // Check stderr and stdout for expected output
+        const output = (result.stderr || '') + (result.stdout || '');
+
+        // Check if all expected outputs are present
+        const missingOutputs = expectedOutputs.filter(expected => !output.includes(expected));
+
+        if (missingOutputs.length === 0) {
             return {
                 name: baseName,
                 status: 'pass',
-                message: `Got expected error: "${expectedError}"`
+                message: `Got all expected outputs (${expectedOutputs.length})`
             };
         } else {
             return {
                 name: baseName,
                 status: 'fail',
-                message: `Got different error than expected.\nExpected: "${expectedError}"\nActual output:\n${stderr}`
+                message: `Missing expected outputs:\n${missingOutputs.map(o => `  - "${o}"`).join('\n')}\n\nActual output:\n${output}\nExit code: ${result.status}`
             };
         }
     }
