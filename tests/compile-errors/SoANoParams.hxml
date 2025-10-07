@@ -1,0 +1,4 @@
+lib.hxml
+-cp tests/compile-errors
+-main SoANoParams
+-js bin/compile-tests/SoANoParams.js

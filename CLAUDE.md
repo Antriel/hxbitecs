@@ -8,7 +8,10 @@ HxbitECS is a Haxe wrapper for bitECS v0.4 with macro-powered enhancements. It p
 
 ## Build Configuration
 
-- **Tests**: `haxe test.hxml` - Compiles and runs tests to `bin/tests.js`
+- **Tests**:
+  - `npm test` - Runs both runtime and compile-fail tests
+  - `npm run test:runtime` or `haxe test.hxml` - Compiles runtime tests to `bin/tests.js`, run them with `node bin/tests.js`
+  - `npm run test:compile-errors` - Runs compile-fail tests
 - **Main test runner**: `tests/TestsMain.hx`
 
 ## Architecture
@@ -52,8 +55,17 @@ The test suite uses utest and is organized to validate:
 2. bitECS behavior matches expectations
 3. Hand-coded implementations work as intended
 4. Macro-generated code matches hand-coded equivalents
+5. Compile-time errors are triggered correctly for user mistakes
 
+### Runtime Tests
 Current test structure includes cases for store macros, query macros, and component access patterns.
+
+### Compile-Fail Tests
+Located in `tests/compile-errors/`, these tests verify that user-facing macro errors are triggered correctly:
+- Each test is a `.hx` file with `// EXPECTED_ERROR: "pattern"` comment specifying the expected error message
+- Runner script (`run-compile-tests.js`) compiles each test with generated CLI arguments, expects failure, and validates error output
+- Run with `npm run test:compile-errors` or as part of `npm test`
+- Coverage includes: type parameter validation, array literal requirements, tag component restrictions, invalid field names, non-existent components, SoA type validation, and query operator typos
 
 ## Development Notes
 

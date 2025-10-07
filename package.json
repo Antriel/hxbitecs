@@ -4,6 +4,11 @@
   "description": "",
   "author": "Peter Achberger",
   "license": "MIT",
+  "scripts": {
+    "test": "npm run test:runtime && npm run test:compile-errors",
+    "test:runtime": "haxe test.hxml",
+    "test:compile-errors": "node tests/compile-errors/run-compile-tests.js"
+  },
   "dependencies": {
     "bitecs": "github:NateTheGreatt/bitECS",
     "lix": "github:antriel/lix.client"
