@@ -268,6 +268,38 @@ class TestTypedefComponents extends Test {
         Assert.equals(10.0, world.velAoS[e9].y);
     }
 
+    public function testLongTypedefAoSNaming() {
+        // Test that typedef names are used without field concatenation
+        // This verifies the wrapper name is "AoSWrapper_macros_PlayerData"
+        // not "AoSWrapper_Array_field1_field2_field3_..."
+        var eid = Bitecs.addEntity(world);
+        Bitecs.addComponent(world, eid, world.playerData);
+        world.playerData[eid] = {
+            id: 123,
+            name: "TestPlayer",
+            score: 1000,
+            level: 5,
+            health: 100.0,
+            mana: 50.0,
+            isActive: true
+        };
+
+        var query = new hxbitecs.HxQuery<TypedefComponentWorld, [playerData]>(world);
+        var found = false;
+        for (e in query) {
+            Assert.equals(eid, e.eid);
+            Assert.equals(123, e.playerData.id);
+            Assert.equals("TestPlayer", e.playerData.name);
+            Assert.equals(1000, e.playerData.score);
+            Assert.equals(5, e.playerData.level);
+            Assert.equals(100.0, e.playerData.health);
+            Assert.equals(50.0, e.playerData.mana);
+            Assert.isTrue(e.playerData.isActive);
+            found = true;
+        }
+        Assert.isTrue(found);
+    }
+
 }
 
 // Typedef for simple array
@@ -283,6 +315,17 @@ typedef PositionSoA = {
 
 // Typedef for AoS
 typedef VelocityAoS = Array<{x:Float, y:Float}>;
+
+// Typedef for AoS with many fields
+typedef PlayerData = Array<{
+    var id:Int;
+    var name:String;
+    var score:Int;
+    var level:Int;
+    var health:Float;
+    var mana:Float;
+    var isActive:Bool;
+}>;
 
 // Abstract for SoA (similar to typedef but with additional features)
 
@@ -340,6 +383,9 @@ abstract AbstractPositionOverSimple(PositionSimple) {
 
     // AoS typedef component
     var velAoS:VelocityAoS = new Array<{x:Float, y:Float}>();
+
+    // AoS typedef with many fields
+    var playerData:PlayerData = [];
 
     // Abstract SoA component
     var posAbstract = new AbstractPosition();

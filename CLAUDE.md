@@ -10,7 +10,7 @@ HxbitECS is a Haxe wrapper for bitECS v0.4 with macro-powered enhancements. It p
 
 - **Tests**:
   - `npm test` - Runs both runtime and compile-fail tests
-  - `npm run test:runtime` or `haxe test.hxml` - Compiles runtime tests to `bin/tests.js`, run them with `node bin/tests.js`
+  - `npm run test:runtime` - Compiles and runs runtime tests to `bin/tests.js`
   - `npm run test:compile-errors` - Runs compile-fail tests
 - **Main test runner**: `tests/TestsMain.hx`
 
@@ -131,7 +131,7 @@ All wrapper APIs use "Hx" prefix to:
 ### Debugging Macros
 The `MacroDebug` utility (`src/hxbitecs/MacroDebug.hx`) provides controlled debug output for macro-generated code:
 - **Usage in code**: Use `MacroDebug.printTypeDefinition(td, name)`, `MacroDebug.printExpr(e, name)`, or `MacroDebug.print(msg, name)`
-- **Enable all debug output**: `haxe build.hxml -D hxbitecs.debug`
-- **Filter by type name**: `haxe build.hxml -D hxbitecs.debug=MyType` (case insensitive substring match)
+- **Enable all debug output**: `haxe tests.hxml -D hxbitecs.debug`
+- **Filter by type name**: `haxe tests.hxml -D hxbitecs.debug=MyType` (case insensitive substring match)
 - All macro debug logging should use `MacroDebug` instead of direct `trace()` or `Sys.println()` calls
 - When adding new macros or debugging existing ones, use `MacroDebug` for consistent, controllable output

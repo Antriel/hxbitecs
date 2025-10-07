@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "test": "npm run test:runtime && npm run test:compile-errors",
-    "test:runtime": "haxe test.hxml",
+    "test:runtime": "haxe test.hxml && node bin/tests.js",
     "test:compile-errors": "node tests/compile-errors/run-compile-tests.js"
   },
   "dependencies": {

@@ -29,12 +29,16 @@ function isAlive(ct:ComplexType, pos:Position):Bool {
 
 function getBaseName(type:Type):String {
     return switch type {
-        case TType(t, _): t.get().name;
-        case TInst(t, _): t.get().name;
-        case TAbstract(t, _): t.get().name; // Handle primitive types like Int, Float, Bool, etc.
+        case TType(t, _): getQualifiedName(t.get().pack, t.get().name);
+        case TInst(t, _): getQualifiedName(t.get().pack, t.get().name);
+        case TAbstract(t, _): getQualifiedName(t.get().pack, t.get().name);
         case TAnonymous(a): [for (f in a.get().fields) f.name].join('_');
         case _: Context.error('Unsupported type $type for `getBaseName`.', Context.currentPos());
     }
+}
+
+function getQualifiedName(pack:Array<String>, name:String):String {
+    return pack.length > 0 ? pack.join('_') + '_' + name : name;
 }
 
 function getTypeFields(type:Type):Array<String> {

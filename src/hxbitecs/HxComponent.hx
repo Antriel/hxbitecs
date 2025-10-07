@@ -15,8 +15,17 @@ import hxbitecs.MacroDebug;
 function build() {
     return switch Context.getLocalType() {
         case TInst(_, [componentType]):
-            var pattern = MacroUtils.analyzeComponentType(componentType);
+            // Get the base name from the ORIGINAL type (before following typedefs/abstracts)
+            // This preserves typedef names like "Player" instead of getting "Array"
             var baseName = MacroUtils.getBaseName(componentType);
+
+            // Check if componentType is a typedef or abstract (not an inline type)
+            var isNamedType = switch componentType {
+                case TType(_, _) | TAbstract(_, _): true;
+                case _: false;
+            };
+
+            var pattern = MacroUtils.analyzeComponentType(componentType);
             var pos = Context.currentPos();
 
             // Extract @:wrapperUsing metadata if present
@@ -25,11 +34,23 @@ function build() {
             var name = switch pattern {
                 case SoA(_): 'SoAWrapper_${baseName}';
                 case AoS(elementType):
-                    var elementName = MacroUtils.getBaseName(elementType);
-                    'AoSWrapper_${baseName}_${elementName}';
+                    // If componentType is a named type (typedef/abstract), use only baseName
+                    // Otherwise, include element field names for anonymous inline types
+                    if (isNamedType) {
+                        'AoSWrapper_${baseName}';
+                    } else {
+                        var elementName = MacroUtils.getBaseName(elementType);
+                        'AoSWrapper_${baseName}_${elementName}';
+                    }
                 case SimpleArray(elementType):
-                    var elementName = MacroUtils.getBaseName(elementType);
-                    'SimpleArrayWrapper_${baseName}_${elementName}';
+                    // If componentType is a named type (typedef/abstract), use only baseName
+                    // Otherwise, include element type name for inline Array types
+                    if (isNamedType) {
+                        'SimpleArrayWrapper_${baseName}';
+                    } else {
+                        var elementName = MacroUtils.getBaseName(elementType);
+                        'SimpleArrayWrapper_${baseName}_${elementName}';
+                    }
                 case Tag: 'TagWrapper_${baseName}';
             };
 
