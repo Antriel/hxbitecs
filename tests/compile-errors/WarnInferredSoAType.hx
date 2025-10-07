@@ -1,5 +1,5 @@
 // EXPECTED_OUTPUT: "inferred type"
-// EXPECTED_OUTPUT: "Consider using an explicit typedef"
+// EXPECTED_OUTPUT: "Use an explicit typedef"
 
 import hxbitecs.Hx;
 
