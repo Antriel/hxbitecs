@@ -1,4 +1,0 @@
-lib.hxml
--cp tests/compile-errors
--main SoANonStruct
--js bin/compile-tests/SoANonStruct.js

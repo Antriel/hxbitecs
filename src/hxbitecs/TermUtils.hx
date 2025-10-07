@@ -8,6 +8,9 @@ import haxe.macro.TypeTools;
 
 using Lambda;
 
+// Track which fields we've already warned about to avoid duplicate warnings
+@:persistent private var warnedFields = new Map<String, Bool>();
+
 /**
  * Information about a single component term.
  */
@@ -211,23 +214,96 @@ function exprToIdString(expr:Expr):String {
 }
 
 function getWorldComponentType(worldType:Type, fieldName:String):Type {
+    var result:{type:Type, pos:Position} = getWorldComponentTypeInternal(worldType, fieldName);
+
+    // Warn if component type appears to be a generated hxbitecs type
+    // This usually means the user forgot to explicitly type their field
+    checkForGeneratedType(result.type, fieldName, result.pos);
+
+    return result.type;
+}
+
+function getWorldComponentTypeInternal(worldType:Type, fieldName:String):{type:Type, pos:Position} {
     return switch worldType {
         case TAnonymous(a):
             var field = a.get().fields.find(f -> f.name == fieldName);
             if (field == null) {
                 Context.error('Component field "$fieldName" not found in world type', Context.currentPos());
             }
-            field.type;
+            {type: field.type, pos: field.pos};
         case TInst(t, _):
             var field = t.get().fields.get().find(f -> f.name == fieldName);
             if (field == null) {
                 Context.error('Component field "$fieldName" not found in world type', Context.currentPos());
             }
-            field.type;
+            {type: field.type, pos: field.pos};
         case TType(t, _):
-            getWorldComponentType(t.get().type, fieldName);
+            getWorldComponentTypeInternal(t.get().type, fieldName);
         case _:
             Context.error('Unsupported world type $worldType for component extraction', Context.currentPos());
     }
+}
+
+/**
+ * Check if a type looks like a generated hxbitecs type and warn if so.
+ * Generated types like `SoAx_y` indicate the user may have forgotten to use
+ * an explicit type annotation (e.g., `var pos:Vector2` instead of `var pos = new Vector2()`).
+ */
+function checkForGeneratedType(componentType:Type, fieldName:String, fieldPos:Position):Void {
+    switch componentType {
+        case TAbstract(t, _):
+            var ref = t.get();
+            var typeName = ref.name;
+            var pack = ref.pack.join('.');
+
+            // Check if it's from hxbitecs package and has a generated-looking name
+            if (pack == 'hxbitecs' && isGeneratedTypeName(typeName)) {
+                // Create a unique key for this field to deduplicate warnings
+                var posInfo = Context.getPosInfos(fieldPos);
+                var warningKey = '${posInfo.file}:${posInfo.min}';
+
+                // Only warn once per field
+                if (!warnedFields.exists(warningKey)) {
+                    warnedFields.set(warningKey, true);
+                    Context.warning(
+                        'Field "$fieldName" has inferred type "$typeName" from hxbitecs package. ' +
+                        'Consider using an explicit typedef to get cleaner wrapper names and compatibility with `HxComponent`/`HxEntity`/`@:wrapperUsing`: ' +
+                        '`var $fieldName:YourTypedef = ...`',
+                        fieldPos
+                    );
+                }
+            }
+        case _:
+            // Not an abstract or not generated, no warning needed
+    }
+}
+
+/**
+ * Check if a type name looks like a generated type from hxbitecs.
+ * Generated names typically have patterns like: SoAx_y, AoSWrapper_*, etc.
+ */
+function isGeneratedTypeName(name:String):Bool {
+    // Match patterns for generated types:
+    // - SoA followed by field names: SoAx_y, SoAPosition
+    // - But NOT typedefs like "Vector2" or user-defined names
+    // Generated SoA types have specific patterns from the SoA macro
+
+    // Check if it starts with "SoA" and has lowercase continuation (field names)
+    // or contains underscores followed by lowercase (concatenated field names)
+    if (name.indexOf('SoA') == 0) {
+        // Generated: SoAx_y, SoAposition
+        // User typedef through SoA: would be named like "SoAVector2" (but that doesn't happen
+        // because SoA<T> returns the generated structure directly)
+
+        // If it starts with SoA and the next char is lowercase or underscore, it's generated
+        if (name.length > 3) {
+            var nextChar = name.charAt(3);
+            if (nextChar >= 'a' && nextChar <= 'z' || nextChar == '_') {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 #end
