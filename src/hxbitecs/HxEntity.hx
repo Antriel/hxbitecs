@@ -108,18 +108,12 @@ function generateStructuralType(componentInfos:Array<TermUtils.TermInfo>):Comple
     // Add component fields matching EntityWrapper's public API
     for (termInfo in componentInfos) {
         var pattern = MacroUtils.analyzeComponentType(termInfo.componentType);
-        var fieldKind:FieldType = switch pattern {
-            case SimpleArray(elementType):
-                // For SimpleArray, properties have get/set access
-                FProp("get", "set", TypeTools.toComplexType(elementType));
-            case SoA(_) | AoS(_) | Tag:
-                // For other patterns, use HxComponent wrapper (regular field)
-                FVar(TPath({
-                    pack: MacroUtils.HXBITECS_PACK,
-                    name: MacroUtils.HX_COMPONENT,
-                    params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
-                }));
-        };
+        // All component patterns use HxComponent wrapper for consistency
+        var fieldKind:FieldType = FVar(TPath({
+            pack: MacroUtils.HXBITECS_PACK,
+            name: MacroUtils.HX_COMPONENT,
+            params: [TPType(TypeTools.toComplexType(termInfo.componentType))]
+        }));
 
         fields.push({
             name: termInfo.name,

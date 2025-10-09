@@ -56,7 +56,7 @@ class TestTypedefComponents extends Test {
         var found = false;
         for (e in query) {
             Assert.equals(1, e.eid);
-            Assert.equals(10.0, e.posSimple);
+            Assert.equals(10.0, e.posSimple.value);
             found = true;
         }
 
@@ -64,7 +64,7 @@ class TestTypedefComponents extends Test {
 
         // Test modification
         for (e in query) {
-            e.posSimple = 99.0;
+            e.posSimple.value = 99.0;
         }
 
         Assert.equals(99.0, world.posSimple[1]);
@@ -226,7 +226,7 @@ class TestTypedefComponents extends Test {
         var found = false;
         for (e in query) {
             Assert.equals(7, e.eid);
-            Assert.equals(80.0, e.posAbstractOverSimple);
+            Assert.equals(80.0, e.posAbstractOverSimple.value);
             found = true;
         }
 
@@ -234,7 +234,7 @@ class TestTypedefComponents extends Test {
 
         // Test modification
         for (e in query) {
-            e.posAbstractOverSimple = 190.0;
+            e.posAbstractOverSimple.value = 190.0;
         }
 
         Assert.equals(190.0, world.posAbstractOverSimple[7]);

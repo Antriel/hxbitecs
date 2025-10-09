@@ -204,10 +204,10 @@ class TestComponentAccess extends Test {
             // Should be entities 2 and 4
             if (e.eid == 2) {
                 Assert.equals(30.0, e.pos.x);
-                Assert.equals(25, e.damage);
+                Assert.equals(25, e.damage.value);
             } else if (e.eid == 4) {
                 Assert.equals(70.0, e.pos.x);
-                Assert.equals(15, e.damage);
+                Assert.equals(15, e.damage.value);
             }
         }
 
@@ -295,16 +295,16 @@ class TestComponentAccess extends Test {
     }
 
     public function testSimpleArrayAssignmentSyntax() {
-        // This test demonstrates the key improvement: entity.damage = value should work
+        // Test that SimpleArray components use consistent .value access pattern
 
         // Test with QueryMacro
         var query = new hxbitecs.HxQuery<ComponentAccessWorld, [pos, damage]>(world);
 
         for (e in query) {
             if (e.eid == 2) {
-                // The main improvement: direct assignment syntax works!
-                e.damage = 999;
-                Assert.equals(999, e.damage);
+                // SimpleArray access requires .value for consistency
+                e.damage.value = 999;
+                Assert.equals(999, e.damage.value);
 
                 // Also test that it doesn't interfere with other component types
                 e.pos.x = 555.0;
@@ -315,16 +315,16 @@ class TestComponentAccess extends Test {
         // Test with entity wrapper
         var accessor = hxbitecs.Hx.entity(world, 4, [damage]);
 
-        // Direct assignment should work here too
-        accessor.damage = 777;
-        Assert.equals(777, accessor.damage);
+        // .value access works here too
+        accessor.damage.value = 777;
+        Assert.equals(777, accessor.damage.value);
 
         // Verify the changes are persistent and visible across different access patterns
         for (e in query) {
             if (e.eid == 2) {
-                Assert.equals(999, e.damage); // From QueryMacro assignment
+                Assert.equals(999, e.damage.value); // From QueryMacro assignment
             } else if (e.eid == 4) {
-                Assert.equals(777, e.damage); // From EntityAccessor assignment
+                Assert.equals(777, e.damage.value); // From EntityAccessor assignment
             }
         }
     }
@@ -338,49 +338,49 @@ class TestComponentAccess extends Test {
 
         for (e in damageQuery) {
             foundEntities.push(e.eid);
-            damageValues.push(e.damage);
+            damageValues.push(e.damage.value);
         }
 
         // Should find entities 2 and 4
         Assert.same([2, 4], foundEntities);
         Assert.same([25, 15], damageValues);
 
-        // Test modification through SimpleArray properties (this is the main improvement!)
+        // Test modification through SimpleArray properties using .value
         for (e in damageQuery) {
             if (e.eid == 2) {
                 // Test reading
-                var originalDamage = e.damage;
+                var originalDamage = e.damage.value;
                 Assert.equals(25, originalDamage);
 
-                // Test assignment - this should work now!
-                e.damage = 100;
-                Assert.equals(100, e.damage);
+                // Test assignment using .value
+                e.damage.value = 100;
+                Assert.equals(100, e.damage.value);
             }
         }
 
         // Test entity wrapper with SimpleArray assignment
         var damageAccessor = hxbitecs.Hx.entity(world, 2, [damage]);
-        Assert.equals(100, damageAccessor.damage);
+        Assert.equals(100, damageAccessor.damage.value);
 
         // Test cross-reference integrity: modify via entity wrapper, verify via QueryMacro
-        damageAccessor.damage = 75;
+        damageAccessor.damage.value = 75;
 
         for (e in damageQuery) {
             if (e.eid == 2) {
-                Assert.equals(75, e.damage); // Should see the change made via EntityAccessor
+                Assert.equals(75, e.damage.value); // Should see the change made via EntityAccessor
             }
         }
 
         // Test cross-reference integrity: modify via QueryMacro, verify via EntityAccessor
         for (e in damageQuery) {
             if (e.eid == 4) {
-                e.damage = 50; // Change entity 4's damage
+                e.damage.value = 50; // Change entity 4's damage
                 break;
             }
         }
 
         var damageAccessor4 = hxbitecs.Hx.entity(world, 4, [damage]);
-        Assert.equals(50, damageAccessor4.damage); // Should see the change made via QueryMacro
+        Assert.equals(50, damageAccessor4.damage.value); // Should see the change made via QueryMacro
     }
 
     public function testComponentDataConsistencyAcrossQueries() {
@@ -487,13 +487,13 @@ class TestComponentAccess extends Test {
 
         // Verify changes are visible through entity wrapper
         var accessor = hxbitecs.Hx.entity(world, 2, [damage]);
-        Assert.equals(150, accessor.damage);
+        Assert.equals(150, accessor.damage.value);
 
         // Verify changes are visible through HxQuery
         var query = new hxbitecs.HxQuery<ComponentAccessWorld, [damage]>(world);
         for (e in query) {
             if (e.eid == 2) {
-                Assert.equals(150, e.damage);
+                Assert.equals(150, e.damage.value);
             }
         }
     }
