@@ -195,6 +195,46 @@ class TestAdHocQuery extends Test {
         Assert.equals(6, results[0].eid);
     }
 
+    public function testAdHocQueryWithOptionsObject() {
+        // Test query with options object (commit: false)
+        var entityCount = 0;
+        for (e in hxbitecs.Hx.query(world, [pos], {commit: false})) {
+            entityCount++;
+        }
+        Assert.equals(10, entityCount);
+
+        // Test query with buffered option
+        var bufferedQuery = hxbitecs.Hx.query(world, [pos], {buffered: true});
+        var bufferedCount = 0;
+        for (e in bufferedQuery) {
+            bufferedCount++;
+        }
+        Assert.equals(10, bufferedCount);
+    }
+
+    public function testAdHocQueryWithModifiers() {
+        // Test query with isNested modifier
+        var entityCount = 0;
+        for (e in hxbitecs.Hx.query(world, [pos, vel], Bitecs.isNested)) {
+            entityCount++;
+        }
+        Assert.equals(5, entityCount);
+
+        // Test query with asBuffer modifier
+        var bufferedCount = 0;
+        for (e in hxbitecs.Hx.query(world, [pos], Bitecs.asBuffer)) {
+            bufferedCount++;
+        }
+        Assert.equals(10, bufferedCount);
+
+        // Test query with noCommit modifier (alias for isNested)
+        var noCommitCount = 0;
+        for (e in hxbitecs.Hx.query(world, [pos], Bitecs.noCommit)) {
+            noCommitCount++;
+        }
+        Assert.equals(10, noCommitCount);
+    }
+
 }
 
 @:publicFields class AdHocTestWorld {

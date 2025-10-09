@@ -22,10 +22,13 @@ class Hx {
      * Expression macro for ad-hoc queries that use bitecs.Bitecs.query() directly
      * without requiring persistent query registration.
      *
-     * Usage: for (e in Hx.query(world, [pos, vel])) { ... }
+     * Usage:
+     * - for (e in Hx.query(world, [pos, vel])) { ... }
+     * - for (e in Hx.query(world, [pos, vel], asBuffer)) { ... }
+     * - for (e in Hx.query(world, [pos, vel], {commit: false})) { ... }
      */
-    public static macro function query(world:Expr, terms:Expr):Expr {
-        var e = queryImpl(world, terms);
+    public static macro function query(world:Expr, terms:Expr, ?modifiers:Expr):Expr {
+        var e = queryImpl(world, terms, modifiers);
         MacroDebug.printExpr(e, "Hx.query");
         return e;
     }
@@ -74,7 +77,7 @@ class Hx {
     }
 
     #if macro
-    static function queryImpl(worldExpr:Expr, termsExpr:Expr):Expr {
+    static function queryImpl(worldExpr:Expr, termsExpr:Expr, ?modifiersExpr:Expr):Expr {
         final pos = Context.currentPos();
 
         // Validate that terms is an array expression
@@ -105,9 +108,13 @@ class Hx {
         // This ensures we only pass actual component stores, not operator expressions
         var componentStoreExprs = MacroUtils.generateComponentStoreExprs(worldExpr, queryTermInfo.allComponents);
 
-        // Generate block expression that creates the iterator directly
+        // Build arguments array for bitecs.Bitecs.query
+        var queryArgs = [worldExpr, macro $a{queryTermInfo.queryExprs}];
+        if (!modifiersExpr?.expr.match(EConst(CIdent("null"))))
+            queryArgs.push(modifiersExpr);
+
         return macro {
-            var queryResult = bitecs.Bitecs.query($worldExpr, $a{queryTermInfo.queryExprs});
+            var queryResult = bitecs.Bitecs.query($a{queryArgs});
             new $iteratorType(queryResult, $a{componentStoreExprs});
         };
     }
