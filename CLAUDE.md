@@ -29,7 +29,8 @@ HxbitECS is a Haxe wrapper for bitECS v0.4 with macro-powered enhancements. It p
 - **HxQuery** (`src/hxbitecs/HxQuery.hx`) - Generates type-safe query classes (mirrors bitECS `defineQuery` and `query`)
   - Constructor `new HxQuery(world)` creates persistent query instances for performance-critical repeated queries
   - Static `QueryType.on(world, ?modifiers)` enables ad-hoc query usage without persistent instances (bitECS v0.4 idiom)
-  - Provides `query.entity(eid)` method for creating entity wrappers from queries
+  - Static `QueryType.entity(world, eid)` creates entity wrappers from query typedef without persistent instances
+  - Provides `query.get(eid)` method for creating entity wrappers from queries
 - **Hx** (`src/hxbitecs/Hx.hx`) - Main utility class providing:
   - `Hx.query()` - Expression macro for ad-hoc queries without registration (mirrors bitECS `query`)
   - `Hx.addComponent()` - Type-safe component initialization (mirrors bitECS `addComponent`)
@@ -102,8 +103,9 @@ Entity wrappers provide type-safe access to components for a specific entity:
 
 - **Creating entity wrappers**:
   - `Hx.entity(world, eid, [terms])` - Create from world and component terms
-  - `query.entity(eid)` - Create from existing query (shares component stores with query)
-  - Both return type `HxEntity<World, [terms]>` matching the components
+  - `query.get(eid)` - Create from existing query instance (shares component stores with query)
+  - `QueryType.entity(world, eid)` - Create from query typedef without persistent instance
+  - All return type `HxEntity<World, [terms]>` matching the components
 
 - **Type annotations**:
   - `HxEntity<World, [terms]>` - Direct specification of world and component terms
@@ -120,6 +122,7 @@ Entity wrappers provide type-safe access to components for a specific entity:
 - **Use cases**:
   - Polymorphic functions: `function move(e:HxEntity<World, [pos, vel]>) { ... }` accepts entities with any extra components
   - Direct entity manipulation: `var e = Hx.entity(world, eid, [pos, vel]); e.pos.x = 0;`
+  - Reusable typedef-based access: `typedef MyQuery = HxQuery<World, [pos, vel]>; var e = MyQuery.entity(world, eid);`
   - Sharing component stores with queries for efficient access patterns
 
 ### API Naming Convention

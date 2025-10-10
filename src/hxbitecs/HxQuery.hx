@@ -81,7 +81,7 @@ function generateQuery(name:String, target:Type, terms:Type,
     // Returns type HxEntity<World, [terms]> matching this query's component terms
 
     var entityMethod:Field = {
-        name: "entity",
+        name: "get",
         kind: FFun({
             args: [{ name: "eid", type: macro :Int }],
             ret: TPath(wrapperTypePath),
@@ -131,6 +131,23 @@ function generateQuery(name:String, target:Type, terms:Type,
         access: [APublic, AStatic, AInline, AOverload, AExtern],
     };
     queryFields.push(onMethod2);
+
+    // Generate static entity() method for creating entity wrappers from typedef
+    var staticEntityMethod:Field = {
+        name: "entity",
+        kind: FFun({
+            args: [
+                { name: "world", type: TypeTools.toComplexType(target) },
+                { name: "eid", type: macro :Int }
+            ],
+            ret: TPath(wrapperTypePath),
+            expr: macro return new $wrapperTypePath(eid, $a{componentStoreExprs})
+        }),
+        pos: pos,
+        access: [APublic, AStatic, AInline],
+        doc: "Creates an entity wrapper from query typedef without persistent query instance.\n\nReturns type `HxEntity<World, [terms]>` matching this query's component terms.\n\nUsage: `typedef MyQuery = HxQuery<World, [pos, vel]>; var e = MyQuery.entity(world, eid);`"
+    };
+    queryFields.push(staticEntityMethod);
 
     final queryCt = TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' });
 

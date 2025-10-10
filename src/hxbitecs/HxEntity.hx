@@ -78,7 +78,7 @@ function buildStructuralFromQueryType(queryType:Type):ComplexType {
                     expr: ECheckType(macro null, TypeTools.toComplexType(queryType)),
                     pos: pos
                 };
-                var entityMethodType = Context.typeof(macro $queryTypeE.entity(0));
+                var entityMethodType = Context.typeof(macro $queryTypeE.get(0));
                 // The entity method returns our structural type, so return it directly
                 return TypeTools.toComplexType(entityMethodType);
             } catch (e:Dynamic) {

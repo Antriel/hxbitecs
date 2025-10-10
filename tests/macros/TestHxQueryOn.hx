@@ -1,14 +1,7 @@
 package macros;
 
+import macros.data.MyQueryWorld.*;
 import macros.data.MyQueryWorld;
-
-// Typedef for testing query.on() method
-typedef MovingQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, vel]>;
-typedef ComplexQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, Or(vel, health)]>;
-typedef TagQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, isPoisoned]>;
-typedef HealthQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, health]>;
-typedef PosNotVelQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, Not(vel)]>;
-typedef PosNoneVelHealthQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, None(vel, health)]>;
 
 class TestHxQueryOn extends Test {
 

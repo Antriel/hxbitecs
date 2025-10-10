@@ -209,7 +209,7 @@ class TestQueryMacro extends Test {
         var query = new hxbitecs.HxQuery<MyQueryWorld, [pos, vel]>(world);
 
         // Create entity wrapper from query
-        var entity = query.entity(2);
+        var entity = query.get(2);
 
         Assert.equals(2, entity.eid);
         Assert.equals(20.0, entity.pos.x);
@@ -283,7 +283,7 @@ class TestQueryMacro extends Test {
         var query:PosVelQuery = new PosVelQuery(world);
 
         // Use HxEntity<PosVelQuery> type annotation
-        var entity:hxbitecs.HxEntity<PosVelQuery> = query.entity(2);
+        var entity:hxbitecs.HxEntity<PosVelQuery> = query.get(2);
 
         Assert.equals(2, entity.eid);
         Assert.equals(20.0, entity.pos.x);
@@ -295,7 +295,7 @@ class TestQueryMacro extends Test {
         var query = new PosVelQuery(world);
 
         // Create entity from query - type is HxEntity<PosVelQuery>
-        var entity1:hxbitecs.HxEntity<PosVelQuery> = query.entity(2);
+        var entity1:hxbitecs.HxEntity<PosVelQuery> = query.get(2);
 
         // Create entity from world - type is HxEntity<MyQueryWorld, [pos, vel]>
         var entity2:hxbitecs.HxEntity<MyQueryWorld, [pos, vel]> = hxbitecs.Hx.entity(world, 2, [pos, vel]);
@@ -324,7 +324,7 @@ class TestQueryMacro extends Test {
             e.vel.y = 6.0;
         }
 
-        var entity = query.entity(4);
+        var entity = query.get(4);
 
         modifyEntityFromQuery(entity);
         Assert.equals(50.0, entity.pos.x);
@@ -353,11 +353,11 @@ class TestQueryMacro extends Test {
         }
 
         // Entity from query with exactly [pos, vel] works
-        var entity2comp = query2.entity(2);
+        var entity2comp = query2.get(2);
         moveEntity(entity2comp); // ✓ Should work
 
         // Entity from query with [pos, vel, health] also works via structural subtyping
-        var entity3comp = query3.entity(2);
+        var entity3comp = query3.get(2);
         moveEntity(entity3comp); // ✓ Should work - entity has extra components
 
         // Entity created with Hx.entity() also works
@@ -379,7 +379,7 @@ class TestQueryMacro extends Test {
         }
 
         // Entity from PosVelQuery (which has [pos, vel]) can be passed to function expecting only [pos]
-        var entity = query.entity(3);
+        var entity = query.get(3);
         updatePosition(entity); // ✓ Should work via structural subtyping
 
         Assert.equals(100.0, world.pos.x[3]);
@@ -397,7 +397,7 @@ class TestQueryMacro extends Test {
         }
 
         // HxEntity<PosVelQuery> should be structurally compatible with HxEntity<MyQueryWorld, [pos]>
-        var entity:hxbitecs.HxEntity<PosVelQuery> = query.entity(5);
+        var entity:hxbitecs.HxEntity<PosVelQuery> = query.get(5);
         resetPosition(entity); // ✓ Should work via structural subtyping
 
         Assert.equals(0.0, world.pos.x[5]);
