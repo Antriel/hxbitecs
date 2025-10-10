@@ -7,8 +7,8 @@ package hxbitecs;
 @:generic class QueryIterator<T:haxe.Constraints.Constructible<Int->Array<Dynamic>->Void>> {
 
     public var length(default, null):Int;
+    public var entities:haxe.ds.ReadOnlyArray<Int>;
 
-    final entities:haxe.ds.ReadOnlyArray<Int>;
     final components:Array<Dynamic>;
     var i:Int = 0;
 
