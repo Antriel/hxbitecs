@@ -93,6 +93,45 @@ function generateQuery(name:String, target:Type, terms:Type,
     };
     queryFields.push(entityMethod);
 
+    // Generate static on() method for ad-hoc query usage
+    var worldParamExpr:Expr = { expr: EConst(CIdent("world")), pos: pos };
+    var componentStoreExprs = MacroUtils.generateComponentStoreExprs(worldParamExpr, queryTermInfo.allComponents);
+
+    var onMethod:Field = {
+        name: "on",
+        kind: FFun({
+            args: [
+                { name: "world", type: TypeTools.toComplexType(target) },
+            ],
+            ret: TPath(iterTp),
+            expr: macro {
+                var queryResult = bitecs.Bitecs.query(world, $a{queryTermsExpr});
+                return new $iterTp(queryResult, $a{componentStoreExprs});
+            }
+        }),
+        pos: pos,
+        access: [APublic, AStatic, AInline, AOverload, AExtern],
+        doc: "Execute ad-hoc query without creating persistent query instance.\n\nMaps directly to bitECS `query(world, terms, modifiers)`.\n\nUsage: `MovingQuery.on(world)` or `MovingQuery.on(world, asBuffer)`"
+    };
+    queryFields.push(onMethod);
+    var onMethod2:Field = {
+        name: "on",
+        kind: FFun({
+            args: [
+                { name: "world", type: TypeTools.toComplexType(target) },
+                { name: "modifiers", type: macro :Dynamic },
+            ],
+            ret: TPath(iterTp),
+            expr: macro {
+                var queryResult = bitecs.Bitecs.query(world, $a{queryTermsExpr}, modifiers);
+                return new $iterTp(queryResult, $a{componentStoreExprs});
+            }
+        }),
+        pos: pos,
+        access: [APublic, AStatic, AInline, AOverload, AExtern],
+    };
+    queryFields.push(onMethod2);
+
     final queryCt = TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' });
 
     var queryDef:TypeDefinition = {
