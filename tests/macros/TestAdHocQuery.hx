@@ -235,6 +235,39 @@ class TestAdHocQuery extends Test {
         Assert.equals(10, noCommitCount);
     }
 
+    public function testAdHocQueryWorldScoping() {
+        // Create a separate world with different entities
+        var otherWorld = Bitecs.createWorld(new AdHocTestWorld());
+
+        // Add only 3 entities to otherWorld
+        for (i in 1...4) {
+            final entity = Bitecs.addEntity(otherWorld);
+            Bitecs.addComponent(otherWorld, entity, otherWorld.pos);
+            otherWorld.pos.x[entity] = i * 100.0;
+            otherWorld.pos.y[entity] = i * 200.0;
+        }
+
+        // Helper function that queries a world passed with a different parameter name
+        function queryCustomWorld(customWorld:AdHocTestWorld):Int {
+            var count = 0;
+            for (e in hxbitecs.Hx.query(customWorld, [pos])) {
+                count++;
+            }
+            return count;
+        }
+
+        // Query otherWorld - should only see 3 entities from otherWorld
+        // NOT the 10 entities from the instance variable `world`
+        var otherWorldCount = queryCustomWorld(otherWorld);
+        Assert.equals(3, otherWorldCount, "Ad-hoc query should use the passed-in world, not the global 'world' variable");
+
+        // Query the instance world - should see all 10 entities
+        var instanceWorldCount = queryCustomWorld(world);
+        Assert.equals(10, instanceWorldCount);
+
+        Bitecs.deleteWorld(otherWorld);
+    }
+
 }
 
 @:publicFields class AdHocTestWorld {

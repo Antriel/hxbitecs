@@ -91,8 +91,8 @@ class Hx {
         // Get world type from expression
         var worldType = Context.typeof(worldExpr);
 
-        // Parse terms from expression
-        var queryTermInfo = TermUtils.parseTermsFromExpr(worldType, termsExpr);
+        // Parse terms from expression, passing worldExpr for proper scoping
+        var queryTermInfo = TermUtils.parseTermsFromExpr(worldType, termsExpr, true, worldExpr);
 
         // Generate EntityWrapperMacro type for the iterator
         var wrapperTypePath = MacroUtils.generateEntityWrapperTypePath(worldType, termsExpr);
@@ -387,8 +387,8 @@ class Hx {
         // Get world type from expression
         var worldType = Context.typeof(worldExpr);
 
-        // Parse terms from expression
-        var queryTermInfo = TermUtils.parseTermsFromExpr(worldType, termsExpr);
+        // Parse terms from expression, passing worldExpr for proper scoping
+        var queryTermInfo = TermUtils.parseTermsFromExpr(worldType, termsExpr, true, worldExpr);
 
         // Generate EntityWrapperMacro type path
         var wrapperTypePath = MacroUtils.generateEntityWrapperTypePath(worldType, termsExpr);

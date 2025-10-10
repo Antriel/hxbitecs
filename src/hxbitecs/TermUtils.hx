@@ -51,27 +51,31 @@ function parseTerms(worldType:Type, termsType:Type, allowOperators:Bool = true):
  * @param worldType The world type containing component definitions
  * @param termsExpr The terms expression (must be an array literal)
  * @param allowOperators Whether to allow query operators (Or, And, Not, etc.)
+ * @param worldExpr Optional world expression for ad-hoc queries. When provided, component references use this expression instead of hardcoded "world" identifier.
  * @return Parsed query term information including components and expressions
  */
-function parseTermsFromExpr(worldType:Type, termsExpr:Expr, allowOperators:Bool = true):QueryTermInfo {
+function parseTermsFromExpr(worldType:Type, termsExpr:Expr, allowOperators:Bool = true, ?worldExpr:Expr):QueryTermInfo {
     var termExprs = getTermExpressionsFromExpr(termsExpr);
-    return parseTermsInternal(worldType, termExprs, allowOperators);
+    return parseTermsInternal(worldType, termExprs, allowOperators, worldExpr);
 }
 
-function parseTermsInternal(worldType:Type, termExprs:Array<Expr>, allowOperators:Bool):QueryTermInfo {
+function parseTermsInternal(worldType:Type, termExprs:Array<Expr>, allowOperators:Bool, ?worldExpr:Expr):QueryTermInfo {
     var allComponents:Array<TermInfo> = [];
     var queryExprs:Array<Expr> = [];
 
     for (expr in termExprs) {
         if (allowOperators) {
-            var parsed = parseQueryTerm(worldType, expr, allComponents, true);
+            var parsed = parseQueryTerm(worldType, expr, allComponents, true, worldExpr);
             queryExprs.push(parsed);
         } else {
             // Simple terms only - no operators allowed
             switch expr.expr {
                 case EConst(CIdent(componentName)):
                     collectComponent(worldType, componentName, allComponents);
-                    queryExprs.push(macro world.$componentName);
+                    var componentRef = worldExpr != null
+                        ? macro $worldExpr.$componentName
+                        : macro world.$componentName;
+                    queryExprs.push(componentRef);
                 case _:
                     Context.error('EntityAccessor only supports simple component names, not operators: ${expr.expr}', expr.pos);
             }
@@ -117,16 +121,19 @@ function getTermExpressionsFromExpr(termsExpr:Expr):Array<Expr> {
  * @param expr The expression to parse
  * @param allComponents Accumulator for collected component information
  * @param shouldCollect Whether components in this term should be collected
+ * @param worldExpr Optional world expression for ad-hoc queries. When provided, component references use this expression instead of hardcoded "world" identifier.
  * @return The transformed expression for bitECS query
  */
-function parseQueryTerm(worldType:Type, expr:Expr, allComponents:Array<TermInfo>, shouldCollect:Bool):Expr {
+function parseQueryTerm(worldType:Type, expr:Expr, allComponents:Array<TermInfo>, shouldCollect:Bool, ?worldExpr:Expr):Expr {
     return switch expr.expr {
         // Simple component reference: pos, vel, health
         case EConst(CIdent(componentName)):
             if (shouldCollect) {
                 collectComponent(worldType, componentName, allComponents);
             }
-            macro world.$componentName;
+            worldExpr != null
+                ? macro $worldExpr.$componentName
+                : macro world.$componentName;
 
         // Operator calls: Or(pos, vel), Not(health), And(pos, vel)
         case ECall({ expr: EConst(CIdent(op)) }, args) if (isQueryOperator(op)):
@@ -139,7 +146,7 @@ function parseQueryTerm(worldType:Type, expr:Expr, allComponents:Array<TermInfo>
 
             var parsedArgs = [];
             for (arg in args) {
-                parsedArgs.push(parseQueryTerm(worldType, arg, allComponents, collectChildren));
+                parsedArgs.push(parseQueryTerm(worldType, arg, allComponents, collectChildren, worldExpr));
             }
             var opExpr = switch op {
                 case "Or": macro bitecs.Bitecs.Or;
