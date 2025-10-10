@@ -5,8 +5,10 @@ package hxbitecs;
  * Creates entity wrappers on-demand from entity IDs and component stores.
  */
 @:generic class QueryIterator<T:haxe.Constraints.Constructible<Int->Array<Dynamic>->Void>> {
+
+    public final length(default, null):Int;
+
     final entities:haxe.ds.ReadOnlyArray<Int>;
-    final length:Int;
     final components:Array<Dynamic>;
     var i:Int = 0;
 
@@ -25,4 +27,5 @@ package hxbitecs;
         i++;
         return new T(eid, components);
     }
+
 }
