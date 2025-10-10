@@ -26,7 +26,9 @@ HxbitECS is a Haxe wrapper for bitECS v0.4 with macro-powered enhancements. It p
   - `macros/` - Tests for macro-generated code
 
 ### Key Macro Systems
-- **HxQuery** (`src/hxbitecs/HxQuery.hx`) - Generates type-safe persistent query classes (mirrors bitECS `defineQuery`)
+- **HxQuery** (`src/hxbitecs/HxQuery.hx`) - Generates type-safe query classes (mirrors bitECS `defineQuery` and `query`)
+  - Constructor `new HxQuery(world)` creates persistent query instances for performance-critical repeated queries
+  - Static `QueryType.on(world, ?modifiers)` enables ad-hoc query usage without persistent instances (bitECS v0.4 idiom)
   - Provides `query.entity(eid)` method for creating entity wrappers from queries
 - **Hx** (`src/hxbitecs/Hx.hx`) - Main utility class providing:
   - `Hx.query()` - Expression macro for ad-hoc queries without registration (mirrors bitECS `query`)
@@ -76,11 +78,24 @@ Located in `tests/compile-errors/`, these tests verify that user-facing macro er
 - Targets bitECS v0.4 specifically
 
 ### Query Architecture
-- **Persistent queries** (`HxQuery`): Registered once, reused across frames for performance (use `new HxQuery<World, [components]>(world)`)
-- **Ad-hoc queries** (`Hx.query()`): Created inline without registration for convenience (use `Hx.query(world, [components])`)
-- Both query types use the unified `QueryIterator` with optimized component store access
-- Entity wrappers accept `(eid, components)` where components is an array of component stores
-- Macro-generated array literals enable Haxe optimizer to hoist component access outside loops
+HxbitECS provides three complementary query patterns:
+
+- **Persistent queries** (`new HxQuery(world)`): Registered once, reused across frames for performance-critical repeated queries
+  - Use when: Same query runs every frame (e.g., physics updates, rendering)
+  - Example: `var movingQuery = new HxQuery<World, [pos, vel]>(world);`
+
+- **Typedef + static on()** (`QueryType.on(world)`): Reusable query definitions without persistent instances (bitECS v0.4 idiom)
+  - Use when: Need reusable, named query definitions but don't need persistent instances
+  - Aligns with bitECS v0.4's `query()` pattern
+  - Example: `typedef MovingQuery = HxQuery<World, [pos, vel]>; for (e in MovingQuery.on(world)) { ... }`
+  - Supports modifiers: `MovingQuery.on(world, {commit: false})`
+  - Benefits: Type-safe, reusable, works with `HxEntity<MovingQuery>` type annotations
+
+- **Ad-hoc queries** (`Hx.query(world, [terms])`): One-off inline queries without typedef
+  - Use when: Query used once or rarely, or for quick prototyping
+  - Example: `for (e in Hx.query(world, [pos, vel])) { ... }`
+
+All query patterns use the unified `QueryIterator` with optimized component store access. Macro-generated array literals enable Haxe optimizer to hoist component access outside loops.
 
 ### Entity Access Patterns
 Entity wrappers provide type-safe access to components for a specific entity:
