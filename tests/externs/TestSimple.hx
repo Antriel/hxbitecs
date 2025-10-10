@@ -40,7 +40,7 @@ class TestSimple extends Test {
         Bitecs.addComponent(world, entity2, Position);
         Assert.isTrue(Bitecs.hasComponent(world, entity2, Position));
         Bitecs.setComponent(world, entity2, Position, { x: 10, y: 20 });
-        Bitecs.observe(world, Bitecs.onGet(Position), (eid) -> {
+        Bitecs.observe(world, Bitecs.onGet(Position), (eid) -> return {
             x: Position.x[eid],
             y: Position.y[eid],
         });

@@ -61,6 +61,7 @@ import bitecs.core.entity.EntityId;
     static overload function observe(world:{}, hook:{},
         callback:(eid:EntityId, args:Dynamic) -> Void):() -> Void;
     static overload function observe(world:{}, hook:{}, callback:(eid:EntityId) -> Dynamic):() -> Void;
+    static overload function observe(world:{}, hook:{}, callback:(eid:EntityId) -> Void):() -> Void;
     static function onAdd(terms:haxe.extern.Rest<Dynamic>):{};
     static function onRemove(terms:haxe.extern.Rest<Dynamic>):{};
     static function Or(components:haxe.extern.Rest<Dynamic>):bitecs.core.query.OpReturnType;

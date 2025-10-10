@@ -7,6 +7,7 @@ function main() {
     runner.addCase(new macros.TestQueryMacro());
     runner.addCase(new macros.TestHxQueryOn());
     runner.addCase(new macros.TestHxQueryStaticEntity());
+    runner.addCase(new macros.TestQueryObservers());
     runner.addCase(new macros.TestComponentAccess());
     runner.addCase(new macros.TestAdHocQuery());
     runner.addCase(new macros.TestInitComponent());

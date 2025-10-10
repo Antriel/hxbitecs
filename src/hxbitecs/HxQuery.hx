@@ -149,6 +149,44 @@ function generateQuery(name:String, target:Type, terms:Type,
     };
     queryFields.push(staticEntityMethod);
 
+    // Generate static onAdd() method for observing entities added to this query
+    var onAddMethod:Field = {
+        name: "onAdd",
+        kind: FFun({
+            args: [
+                { name: "world", type: TypeTools.toComplexType(target) },
+                { name: "callback", type: macro :(eid:bitecs.core.entity.EntityId) -> Void }
+            ],
+            ret: macro :() -> Void,
+            expr: macro {
+                return bitecs.Bitecs.observe(world, bitecs.Bitecs.onAdd($a{queryTermsExpr}), callback);
+            }
+        }),
+        pos: pos,
+        access: [APublic, AStatic, AInline],
+        doc: "Observe entities added to this query.\n\nReturns an unsubscribe function.\n\nUsage: `var unsub = MyQuery.onAdd(world, eid -> trace('entity added: ' + eid));`"
+    };
+    queryFields.push(onAddMethod);
+
+    // Generate static onRemove() method for observing entities removed from this query
+    var onRemoveMethod:Field = {
+        name: "onRemove",
+        kind: FFun({
+            args: [
+                { name: "world", type: TypeTools.toComplexType(target) },
+                { name: "callback", type: macro :(eid:bitecs.core.entity.EntityId) -> Void }
+            ],
+            ret: macro :() -> Void,
+            expr: macro {
+                return bitecs.Bitecs.observe(world, bitecs.Bitecs.onRemove($a{queryTermsExpr}), callback);
+            }
+        }),
+        pos: pos,
+        access: [APublic, AStatic, AInline],
+        doc: "Observe entities removed from this query.\n\nReturns an unsubscribe function.\n\nUsage: `var unsub = MyQuery.onRemove(world, eid -> trace('entity removed: ' + eid));`"
+    };
+    queryFields.push(onRemoveMethod);
+
     final queryCt = TPath({ pack: ['bitecs', 'core', 'query'], name: 'Query' });
 
     var queryDef:TypeDefinition = {

@@ -18,3 +18,5 @@ typedef TagQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, isPoisoned]>;
 typedef HealthQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, health]>;
 typedef PosNotVelQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, Not(vel)]>;
 typedef PosNoneVelHealthQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, None(vel, health)]>;
+typedef PosOrVelQuery = hxbitecs.HxQuery<MyQueryWorld, [Or(pos, vel)]>;
+typedef ComplexNotQuery = hxbitecs.HxQuery<MyQueryWorld, [pos, Or(health, isPoisoned), Not(vel)]>;
