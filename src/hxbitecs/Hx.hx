@@ -315,11 +315,15 @@ class Hx {
         var initData = prepareInitialization(componentFields, defaults, hasInit, init, pos);
 
         if (!initData.hasValues) {
-            // No initialization - just add component and return wrapper
+            // No initialization - add component and ensure object exists at slot
+            // Creates empty object only if missing (reuses existing to avoid GC, matches SoA stale-value semantics)
+            // Use cast to bypass Haxe's type check - we intentionally create empty object for JS runtime
             return macro {
                 var __comp = $component;
-                bitecs.Bitecs.addComponent($world, $eid, __comp);
-                new $wrapperTypePath({ store: __comp, eid: $eid });
+                var __eid = $eid;
+                bitecs.Bitecs.addComponent($world, __eid, __comp);
+                if (__comp[__eid] == null) __comp[__eid] = cast {};
+                new $wrapperTypePath({ store: __comp, eid: __eid });
             };
         }
 

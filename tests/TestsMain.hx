@@ -13,6 +13,7 @@ function main() {
     runner.addCase(new macros.TestInitComponent());
     runner.addCase(new macros.TestComponentDefaults());
     runner.addCase(new macros.TestTypedefComponents());
+    runner.addCase(new macros.TestAoSWithoutInit());
     utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
     runner.run();
 }
