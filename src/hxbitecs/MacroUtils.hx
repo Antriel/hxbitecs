@@ -260,7 +260,7 @@ function generatePropertyWithGetSet(propertyName:String, propertyType:ComplexTyp
             expr: { expr: EReturn(getterExpr), pos: pos }
         }),
         pos: pos,
-        access: [APublic, AInline]
+        access: [AInline]
     });
 
     // Setter method - if no explicit setter provided, generate from getter
@@ -278,7 +278,7 @@ function generatePropertyWithGetSet(propertyName:String, propertyType:ComplexTyp
             expr: { expr: EReturn(finalSetterExpr), pos: pos }
         }),
         pos: pos,
-        access: [APublic, AInline]
+        access: [AInline]
     });
 
     return fields;
